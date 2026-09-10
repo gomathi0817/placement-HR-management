@@ -1,0 +1,299 @@
+{
+  "users": [
+    {
+      "id": "usr-1",
+      "name": "Prof. R. Venkatesh",
+      "title": "Chief Placement Officer",
+      "department": "Training & Placement Cell",
+      "email": "placement@gvcollege.edu.in",
+      "password": "$2a$10$y0e/EVfZNjixhs.63vSFJe81x2d58AjKQcliOHA8qyDhPyYGcIGxy",
+      "phone": "+91 98400 12345"
+    }
+  ],
+  "hrs": [
+    {
+      "id": "hr-1788574534784",
+      "name": "Sreya",
+      "companyId": "comp-1788574534784",
+      "companyName": "ZOHO",
+      "designation": "Manager — Talent Acquisition",
+      "phone": "+918248328267",
+      "email": "gomathikallimuthu1221@gmail.com",
+      "whatsapp": "+918248328267",
+      "status": "Waiting for HR Response",
+      "lastContactDate": "2026-09-05",
+      "nextFollowUpDate": "2026-09-05",
+      "nextFollowUpTime": "07:50 AM",
+      "nextFollowUpPurpose": "Discuss campus recruitment process",
+      "priority": "Medium",
+      "avatar": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200",
+      "companyInfo": {
+        "recruitmentType": "Full-Time + Internship",
+        "studentsRequired": 20,
+        "jobRoles": [
+          "Software Engineer Trainee"
+        ],
+        "location": "Bengaluru",
+        "currentStatus": "Initial Outreach"
+      }
+    },
+    {
+      "id": "hr-1",
+      "name": "Gomathi HR",
+      "companyId": "comp-1",
+      "companyName": "ABC Technologies",
+      "designation": "Manager — Talent Acquisition",
+      "phone": "+91 98765 43210",
+      "email": "gomathi.hr@abctechnologies.com",
+      "whatsapp": "+91 98765 43210",
+      "status": "Active",
+      "lastContactDate": "2026-08-30",
+      "nextFollowUpDate": "2026-09-03",
+      "nextFollowUpTime": "10:30 AM",
+      "nextFollowUpPurpose": "Discuss campus recruitment process & interview rounds",
+      "priority": "High",
+      "avatar": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200",
+      "companyInfo": {
+        "recruitmentType": "Full-Time + Internship",
+        "studentsRequired": 30,
+        "jobRoles": [
+          "Software Engineer Trainee",
+          "Data Analyst Intern"
+        ],
+        "location": "Bengaluru / Hybrid",
+        "currentStatus": "Process Discussion Phase",
+        "pkgDetails": "6.5 LPA (Full Time), ₹25,000/mo (Stipend)"
+      }
+    },
+    {
+      "id": "hr-2",
+      "name": "Priya Nair",
+      "companyId": "comp-2",
+      "companyName": "Infosys",
+      "designation": "HR Lead — Campus Relations",
+      "phone": "+91 98450 11223",
+      "email": "priya_nair@infosys.com",
+      "whatsapp": "+91 98450 11223",
+      "status": "Waiting for HR Response",
+      "lastContactDate": "2026-08-25",
+      "nextFollowUpDate": "2026-08-31",
+      "nextFollowUpTime": "02:00 PM",
+      "nextFollowUpPurpose": "Waiting for interview schedule confirmation",
+      "priority": "High",
+      "avatar": "https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&q=80&w=200",
+      "companyInfo": {
+        "recruitmentType": "Full-Time Pool Drive",
+        "studentsRequired": 45,
+        "jobRoles": [
+          "Systems Engineer",
+          "Specialist Programmer"
+        ],
+        "location": "Mysuru Training Campus / Pan India",
+        "currentStatus": "Awaiting Slot Confirmation",
+        "pkgDetails": "4.0 to 9.5 LPA"
+      }
+    },
+    {
+      "id": "hr-3",
+      "name": "Ravi Kumar",
+      "companyId": "comp-3",
+      "companyName": "Tech Solutions Pvt Ltd",
+      "designation": "HR Executive",
+      "phone": "+91 91234 56789",
+      "email": "ravi.k@techsolutions.io",
+      "whatsapp": "+91 91234 56789",
+      "status": "Waiting for HR Response",
+      "lastContactDate": "2026-09-01",
+      "nextFollowUpDate": "2026-09-03",
+      "nextFollowUpTime": "11:45 AM",
+      "nextFollowUpPurpose": "Confirm PPT (Pre-Placement Talk) dates",
+      "priority": "Medium",
+      "avatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200",
+      "companyInfo": {
+        "recruitmentType": "Direct Hiring",
+        "studentsRequired": 15,
+        "jobRoles": [
+          "Frontend Developer",
+          "DevOps Assistant"
+        ],
+        "location": "Chennai",
+        "currentStatus": "Shortlisting Resumes",
+        "pkgDetails": "5.2 LPA"
+      }
+    }
+  ],
+  "companies": [
+    {
+      "id": "comp-1788574534784",
+      "name": "ZOHO",
+      "industry": "Software & Technology",
+      "location": "Bengaluru",
+      "status": "Active Recruitment",
+      "studentsRequired": 20,
+      "recruitmentStage": "Initial Contact",
+      "lastInteraction": "05 Sept 2026",
+      "nextFollowUp": "2026-09-07",
+      "hrContact": "Sreya",
+      "hrDesignation": "Manager — Talent Acquisition",
+      "tier": "Tier 1",
+      "website": ""
+    },
+    {
+      "id": "comp-1",
+      "name": "ABC Technologies",
+      "industry": "IT Services & Consulting",
+      "location": "Bengaluru",
+      "status": "Active Recruitment",
+      "studentsRequired": 30,
+      "recruitmentStage": "Technical Process Discussion",
+      "lastInteraction": "30 Aug 2026",
+      "nextFollowUp": "03 Sep 2026",
+      "hrContact": "Gomathi HR",
+      "hrDesignation": "Manager — Talent Acquisition",
+      "tier": "Tier 1",
+      "website": "https://abctechnologies.example.com"
+    },
+    {
+      "id": "comp-2",
+      "name": "Infosys",
+      "industry": "IT & Global Services",
+      "location": "Mysuru / Bengaluru",
+      "status": "Drive Scheduled",
+      "studentsRequired": 45,
+      "recruitmentStage": "Slot Confirmation Pending",
+      "lastInteraction": "25 Aug 2026",
+      "nextFollowUp": "31 Aug 2026 (Overdue)",
+      "hrContact": "Priya Nair",
+      "hrDesignation": "HR Lead — Campus Relations",
+      "tier": "Tier 1",
+      "website": "https://infosys.example.com"
+    },
+    {
+      "id": "comp-3",
+      "name": "Tech Solutions Pvt Ltd",
+      "industry": "Software Products",
+      "location": "Chennai",
+      "status": "In Conversation",
+      "studentsRequired": 15,
+      "recruitmentStage": "PPT & Resume Shortlisting",
+      "lastInteraction": "01 Sep 2026",
+      "nextFollowUp": "03 Sep 2026",
+      "hrContact": "Ravi Kumar",
+      "hrDesignation": "HR Executive",
+      "tier": "Tier 2",
+      "website": "https://techsolutions.example.io"
+    }
+  ],
+  "interactions": [
+    {
+      "id": "int-1",
+      "hrId": "hr-1",
+      "hrName": "Gomathi HR",
+      "companyName": "ABC Technologies",
+      "date": "2026-08-17",
+      "method": "Call",
+      "title": "Initial Discussion",
+      "summary": "Discussed campus recruitment requirements for 2027 batch passing out students. Expressed interest in CSE & ECE branches.",
+      "studentsRequired": 30,
+      "recruitmentProcess": "Aptitude Test → Coding Round → 2 Technical Interviews → HR Round",
+      "importantNotes": "Requested top 15% student profiles with no standing arrears.",
+      "nextAction": "Send company profile to department heads and follow up on 20 Aug via WhatsApp"
+    },
+    {
+      "id": "int-2",
+      "hrId": "hr-1",
+      "hrName": "Gomathi HR",
+      "companyName": "ABC Technologies",
+      "date": "2026-08-30",
+      "method": "Call",
+      "title": "Recruitment Process Discussion",
+      "summary": "Detailed discussion on recruitment stages, online assessment platform hosting, and slot booking for 2nd week of September.",
+      "studentsRequired": 30,
+      "recruitmentProcess": "Online Aptitude + Coding → Technical 1 → Technical 2 → Management HR",
+      "importantNotes": "Requested auditorium reservation for Pre-Placement Talk on Day 1.",
+      "nextAction": "Follow up on 03 Sep at 10:30 AM to confirm final dates."
+    }
+  ],
+  "followUps": [
+    {
+      "id": "fol-1788574633779",
+      "hrId": "hr-1788574534784",
+      "hrName": "Sreya",
+      "companyName": "ZOHO",
+      "date": "2026-09-05",
+      "time": "07:50 AM",
+      "purpose": "Discuss campus recruitment process",
+      "priority": "High",
+      "status": "MISSED",
+      "notes": " [Reminder: 15 minutes before]"
+    },
+    {
+      "id": "fol-1",
+      "hrId": "hr-1",
+      "hrName": "Gomathi HR",
+      "companyName": "ABC Technologies",
+      "date": "2026-09-06",
+      "time": "10:30 AM",
+      "purpose": "Discuss campus recruitment process & interview rounds",
+      "priority": "High",
+      "status": "Pending",
+      "notes": "Ensure auditorium availability chart is ready before calling."
+    },
+    {
+      "id": "fol-2",
+      "hrId": "hr-3",
+      "hrName": "Ravi Kumar",
+      "companyName": "Tech Solutions Pvt Ltd",
+      "date": "2026-09-03",
+      "time": "11:45 AM",
+      "purpose": "Confirm PPT (Pre-Placement Talk) dates and guest accommodation",
+      "priority": "Medium",
+      "status": "MISSED",
+      "notes": "Check guest house reservation status."
+    },
+    {
+      "id": "fol-3",
+      "hrId": "hr-2",
+      "hrName": "Priya Nair",
+      "companyName": "Infosys",
+      "date": "2026-08-31",
+      "time": "02:00 PM",
+      "purpose": "Waiting for interview schedule confirmation mail",
+      "priority": "High",
+      "status": "MISSED",
+      "notes": "2 days overdue! Send polite reminder email + phone follow up."
+    }
+  ],
+  "notifications": [
+    {
+      "id": "notif-1788574633779",
+      "title": "Follow-up scheduled",
+      "hrName": "Sreya",
+      "companyName": "ZOHO",
+      "time": "07:50 AM",
+      "type": "reminder",
+      "read": 0,
+      "date": "2026-09-05"
+    },
+    {
+      "id": "notif-1",
+      "title": "Follow-up due today",
+      "hrName": "Gomathi HR",
+      "companyName": "ABC Technologies",
+      "time": "10:30 AM",
+      "type": "reminder",
+      "read": false,
+      "date": "2026-09-03"
+    },
+    {
+      "id": "notif-2",
+      "title": "Overdue Follow-up alert",
+      "hrName": "Priya Nair",
+      "companyName": "Infosys",
+      "time": "02:00 PM",
+      "type": "overdue",
+      "read": false,
+      "date": "2026-08-31"
+    }
+  ]
+}

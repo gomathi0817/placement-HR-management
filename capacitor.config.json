@@ -1,0 +1,19 @@
+{
+  "appId": "com.dhaanish.placementhr",
+  "appName": "Placement Officer HR Manager",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  },
+  "plugins": {
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#D4AF37"
+    },
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_icon_config_sample",
+      "iconColor": "#D4AF37"
+    }
+  }
+}
