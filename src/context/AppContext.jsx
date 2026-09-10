@@ -12,6 +12,7 @@ import { companyService } from '../services/companyService';
 import { interactionService } from '../services/interactionService';
 import { followUpService } from '../services/followUpService';
 import { notificationService } from '../services/notificationService';
+import { localNotificationService } from '../services/localNotificationService';
 import { supabase } from '../lib/supabaseClient';
 
 const AppContext = createContext();
@@ -62,7 +63,6 @@ export const AppProvider = ({ children }) => {
   // =========================================================
 
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
-
   const [activeModal, setActiveModal] = useState(null);
 
 
@@ -101,6 +101,31 @@ export const AppProvider = ({ children }) => {
     setActiveReminder(null);
 
   }, []);
+
+
+  // =========================================================
+  // INITIALIZE PHONE NOTIFICATIONS
+  // =========================================================
+
+  const initializePhoneNotifications = useCallback(
+    async () => {
+
+      try {
+
+        await localNotificationService.initialize();
+
+      } catch (error) {
+
+        console.error(
+          'Phone notification initialization error:',
+          error
+        );
+
+      }
+
+    },
+    []
+  );
 
 
   // =========================================================
@@ -373,9 +398,6 @@ export const AppProvider = ({ children }) => {
           }
 
 
-          // Still allow application to open
-          // if profile loading fails.
-
           setUser({
 
             id: session.user.id,
@@ -393,6 +415,17 @@ export const AppProvider = ({ children }) => {
             isLoggedIn: true
 
           });
+
+        }
+
+
+        // ===================================================
+        // INITIALIZE PHONE NOTIFICATIONS
+        // ===================================================
+
+        if (mounted) {
+
+          await initializePhoneNotifications();
 
         }
 
@@ -481,6 +514,7 @@ export const AppProvider = ({ children }) => {
           setLoading(false);
 
           return;
+
         }
 
 
@@ -542,7 +576,8 @@ export const AppProvider = ({ children }) => {
 
   }, [
     clearApplicationData,
-    refreshAppData
+    refreshAppData,
+    initializePhoneNotifications
   ]);
 
 
@@ -577,7 +612,9 @@ export const AppProvider = ({ children }) => {
     }
 
 
-    // Find actual HR
+    // =======================================================
+    // FIND ACTUAL HR
+    // =======================================================
 
     const hr =
       hrs.find(
@@ -586,7 +623,9 @@ export const AppProvider = ({ children }) => {
       );
 
 
-    // Do not use fake HR information
+    // =======================================================
+    // DO NOT USE FAKE HR INFORMATION
+    // =======================================================
 
     if (!hr) {
       return;
@@ -647,6 +686,11 @@ export const AppProvider = ({ children }) => {
         isLoggedIn: true
 
       });
+
+
+      // Initialize phone notifications after login
+
+      await initializePhoneNotifications();
 
 
       showToast(
@@ -769,6 +813,11 @@ export const AppProvider = ({ children }) => {
         isLoggedIn: true
 
       });
+
+
+      // Initialize phone notifications after signup
+
+      await initializePhoneNotifications();
 
 
       showToast(
@@ -986,9 +1035,6 @@ export const AppProvider = ({ children }) => {
       }
 
 
-      // Immediately update the HR card
-      // without requiring page refresh.
-
       setHrs(
         (previousHRs) =>
           previousHRs.map((hr) =>
@@ -1108,11 +1154,83 @@ export const AppProvider = ({ children }) => {
       setLoading(true);
 
 
+      // =====================================================
+      // SAVE FOLLOW-UP TO SUPABASE
+      // =====================================================
+
       const createdFollowUp =
         await followUpService.create(
           followUpData
         );
 
+
+      if (!createdFollowUp) {
+
+        throw new Error(
+          'Follow-up was not created.'
+        );
+
+      }
+
+
+      // =====================================================
+      // SCHEDULE PHONE NOTIFICATION
+      // =====================================================
+
+      try {
+
+        await localNotificationService.scheduleReminder({
+
+          id: createdFollowUp.id,
+
+          hrName:
+            createdFollowUp.hrName ||
+            followUpData.hrName ||
+            '',
+
+          companyName:
+            createdFollowUp.companyName ||
+            followUpData.companyName ||
+            '',
+
+          date:
+            createdFollowUp.date ||
+            followUpData.date,
+
+          time:
+            createdFollowUp.rawTime ||
+            followUpData.time
+
+        });
+
+
+        console.log(
+          'Phone reminder scheduled successfully.'
+        );
+
+
+      } catch (notificationError) {
+
+        console.error(
+          'Phone notification could not be scheduled:',
+          notificationError
+        );
+
+
+        // The follow-up is already saved.
+        // Do not delete it just because notification failed.
+
+        showToast(
+          '✓ Follow-up saved, but phone notification could not be scheduled.',
+          'error'
+        );
+
+      }
+
+
+      // =====================================================
+      // SUCCESS
+      // =====================================================
 
       showToast(
         '✓ Follow-up scheduled successfully.'
@@ -1170,6 +1288,44 @@ export const AppProvider = ({ children }) => {
       );
 
 
+      // =====================================================
+      // CANCEL THE PHONE REMINDER
+      // =====================================================
+
+      // The follow-up ID is converted to the same
+      // notification ID inside localNotificationService.
+
+      try {
+
+        const pending =
+          await localNotificationService.getPendingReminders();
+
+
+        const matchingNotification =
+          pending.find(
+            (notification) =>
+              notification.extra?.followUpId === followUpId
+          );
+
+
+        if (matchingNotification) {
+
+          await localNotificationService.cancelReminder(
+            matchingNotification.id
+          );
+
+        }
+
+      } catch (notificationError) {
+
+        console.error(
+          'Could not cancel phone reminder:',
+          notificationError
+        );
+
+      }
+
+
       showToast(
         '✓ Follow-up marked as completed.'
       );
@@ -1220,11 +1376,94 @@ export const AppProvider = ({ children }) => {
       setLoading(true);
 
 
-      await followUpService.reschedule(
-        followUpId,
-        newDate,
-        newTime
-      );
+      // =====================================================
+      // UPDATE SUPABASE
+      // =====================================================
+
+      const updatedFollowUp =
+        await followUpService.reschedule(
+          followUpId,
+          newDate,
+          newTime
+        );
+
+
+      // =====================================================
+      // CANCEL OLD PHONE NOTIFICATION
+      // =====================================================
+
+      try {
+
+        const pending =
+          await localNotificationService.getPendingReminders();
+
+
+        const matchingNotification =
+          pending.find(
+            (notification) =>
+              notification.extra?.followUpId === followUpId
+          );
+
+
+        if (matchingNotification) {
+
+          await localNotificationService.cancelReminder(
+            matchingNotification.id
+          );
+
+        }
+
+      } catch (notificationError) {
+
+        console.error(
+          'Could not cancel old phone reminder:',
+          notificationError
+        );
+
+      }
+
+
+      // =====================================================
+      // SCHEDULE NEW PHONE NOTIFICATION
+      // =====================================================
+
+      try {
+
+        const hr =
+          hrs.find(
+            (item) =>
+              item.id === followUpId
+          );
+
+
+        await localNotificationService.scheduleReminder({
+
+          id: followUpId,
+
+          hrName:
+            updatedFollowUp?.hrName ||
+            hr?.name ||
+            '',
+
+          companyName:
+            updatedFollowUp?.companyName ||
+            hr?.companyName ||
+            '',
+
+          date: newDate,
+
+          time: newTime
+
+        });
+
+      } catch (notificationError) {
+
+        console.error(
+          'Could not schedule new phone reminder:',
+          notificationError
+        );
+
+      }
 
 
       showToast(
@@ -1340,9 +1579,6 @@ export const AppProvider = ({ children }) => {
         // ===================================================
 
         hrs,
-
-        // Expose setHrs so HRContacts.jsx
-        // can immediately remove/update HRs.
 
         setHrs,
 

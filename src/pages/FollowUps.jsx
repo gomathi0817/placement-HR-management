@@ -1,290 +1,1630 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import {
+  CalendarDays,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  RefreshCw,
+  Search,
+  X,
+  Phone,
+  Building2,
+  UserRound,
+  ChevronDown
+} from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { Clock, Calendar, CheckCircle2, AlertTriangle, Filter, Phone, Plus, RefreshCw, X } from 'lucide-react';
-import { ScheduleFollowUpModal } from '../components/modals/ScheduleFollowUpModal';
-import { getTodayDateString, formatNiceDate } from '../utils/dateUtils';
+
+const formatNiceDate = (dateString) => {
+  if (!dateString) return 'No date';
+
+  const date = new Date(`${dateString}T00:00:00`);
+
+  if (Number.isNaN(date.getTime())) {
+    return dateString;
+  }
+
+  return date.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  });
+};
+
+const getTodayDateString = () => {
+  const now = new Date();
+
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+};
+
+const getStatusClass = (status) => {
+  const normalized = String(status || '').toLowerCase();
+
+  if (
+    normalized === 'completed' ||
+    normalized === 'complete'
+  ) {
+    return 'followup-status completed';
+  }
+
+  if (
+    normalized === 'missed' ||
+    normalized === 'overdue'
+  ) {
+    return 'followup-status missed';
+  }
+
+  if (
+    normalized === 'follow-up due' ||
+    normalized === 'due'
+  ) {
+    return 'followup-status due';
+  }
+
+  return 'followup-status upcoming';
+};
+
+const getStatusLabel = (status) => {
+  const normalized = String(status || '').toLowerCase();
+
+  if (normalized === 'completed' || normalized === 'complete') {
+    return 'Completed';
+  }
+
+  if (normalized === 'missed' || normalized === 'overdue') {
+    return 'Missed';
+  }
+
+  if (
+    normalized === 'follow-up due' ||
+    normalized === 'due'
+  ) {
+    return 'Follow-Up Due';
+  }
+
+  return 'Upcoming';
+};
+
+const getPriorityClass = (priority) => {
+  const normalized = String(priority || '').toLowerCase();
+
+  if (normalized === 'high') {
+    return 'priority high';
+  }
+
+  if (normalized === 'low') {
+    return 'priority low';
+  }
+
+  return 'priority medium';
+};
+
+const getHRInitial = (name) => {
+  const trimmedName = String(name || '').trim();
+
+  if (!trimmedName) {
+    return '?';
+  }
+
+  return trimmedName.charAt(0).toUpperCase();
+};
 
 export const FollowUps = () => {
-  const { followUps, hrs, markFollowUpComplete, rescheduleFollowUp } = useApp();
+  const {
+    followUps = [],
+    hrs = [],
+    markFollowUpComplete,
+    rescheduleFollowUp,
+    loading
+  } = useApp();
+
+  const [activeTab, setActiveTab] = useState('All');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const [rescheduleTarget, setRescheduleTarget] = useState(null);
+  const [newDate, setNewDate] = useState('');
+  const [newTime, setNewTime] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const todayStr = getTodayDateString();
-  const [activeTab, setActiveTab] = useState('All'); // All, Today, Upcoming, Missed, Completed
-  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
-  const [rescheduleTarget, setRescheduleTarget] = useState(null);
-  const [newDate, setNewDate] = useState(todayStr);
-  const [newTime, setNewTime] = useState('10:30 AM');
-  const [rescheduleError, setRescheduleError] = useState('');
 
-  // Filter Follow-Ups
-  const filteredFollowUps = followUps.filter(item => {
-    if (activeTab === 'All') return true;
-    if (activeTab === 'Today') return item.date === todayStr && item.status !== 'MISSED';
-    if (activeTab === 'Upcoming') return item.status === 'Pending' || item.status === 'Upcoming';
-    if (activeTab === 'Missed') return item.status === 'MISSED' || item.status === 'Overdue';
-    if (activeTab === 'Completed') return item.status === 'Completed';
-    return true;
-  });
+  /*
+   * Combine follow-up data with HR contact data.
+   *
+   * followUpService returns:
+   * id
+   * hrId
+   * hrName
+   * companyName
+   * date
+   * time
+   * status
+   * purpose
+   * priority
+   */
+  const normalizedFollowUps = useMemo(() => {
+    return (followUps || []).map((item) => {
+      const hr =
+        hrs.find((hrItem) => hrItem.id === item.hrId) ||
+        hrs.find((hrItem) => hrItem.id === item.id);
 
-  const getStatusChip = (status) => {
-    switch (status) {
-      case 'MISSED':
-      case 'Overdue':
-        return { bg: 'bg-red-100 text-red-900 border-red-300 font-black', label: '🔴 MISSED' };
-      case 'Pending':
-      case 'Follow-Up Due':
-        return { bg: 'bg-accent/20 text-darkText border-accent font-bold', label: '🟡 Follow-Up Due' };
-      case 'Contacted':
-        return { bg: 'bg-olive/30 text-darkText border-olive font-bold', label: '🟢 Contacted' };
-      case 'Waiting for HR Response':
-        return { bg: 'bg-primary/20 text-darkText border-primary font-bold', label: '🟠 Waiting Response' };
-      case 'Completed':
-        return { bg: 'bg-olive/40 text-darkText border-olive font-bold', label: '✅ Completed' };
-      default:
-        return { bg: 'bg-cream text-darkText/70 border-olive/40 font-bold', label: '⚪ Pending' };
+      return {
+        ...item,
+
+        hrId: item.hrId || item.id,
+
+        hrName:
+          item.hrName ||
+          hr?.name ||
+          'Unknown HR',
+
+        companyName:
+          item.companyName ||
+          hr?.company_name ||
+          hr?.companyName ||
+          'Unknown Company',
+
+        phone:
+          item.phone ||
+          hr?.phone ||
+          '',
+
+        email:
+          item.email ||
+          hr?.email ||
+          '',
+
+        date:
+          item.date ||
+          hr?.next_follow_up_date ||
+          '',
+
+        time:
+          item.time ||
+          hr?.next_follow_up_time ||
+          '10:30 AM',
+
+        status:
+          item.status ||
+          'Upcoming',
+
+        purpose:
+          item.purpose ||
+          'Placement follow-up',
+
+        priority:
+          item.priority ||
+          'Medium'
+      };
+    });
+  }, [followUps, hrs]);
+
+  const filteredFollowUps = useMemo(() => {
+    const search = searchTerm.trim().toLowerCase();
+
+    return normalizedFollowUps.filter((item) => {
+      const normalizedStatus =
+        String(item.status || '').toLowerCase();
+
+      let matchesTab = true;
+
+      if (activeTab === 'Today') {
+        matchesTab =
+          item.date === todayStr &&
+          normalizedStatus !== 'missed' &&
+          normalizedStatus !== 'overdue' &&
+          normalizedStatus !== 'completed';
+      }
+
+      if (activeTab === 'Upcoming') {
+        matchesTab =
+          normalizedStatus === 'upcoming' ||
+          normalizedStatus === 'pending' ||
+          normalizedStatus === 'follow-up due' ||
+          normalizedStatus === 'due';
+      }
+
+      if (activeTab === 'Missed') {
+        matchesTab =
+          normalizedStatus === 'missed' ||
+          normalizedStatus === 'overdue';
+      }
+
+      if (activeTab === 'Completed') {
+        matchesTab =
+          normalizedStatus === 'completed' ||
+          normalizedStatus === 'complete';
+      }
+
+      if (!matchesTab) {
+        return false;
+      }
+
+      if (!search) {
+        return true;
+      }
+
+      const searchableText = [
+        item.hrName,
+        item.companyName,
+        item.phone,
+        item.email,
+        item.purpose,
+        item.status,
+        item.priority,
+        item.date
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      return searchableText.includes(search);
+    });
+  }, [
+    normalizedFollowUps,
+    activeTab,
+    searchTerm,
+    todayStr
+  ]);
+
+  const counts = useMemo(() => {
+    let today = 0;
+    let upcoming = 0;
+    let missed = 0;
+    let completed = 0;
+
+    normalizedFollowUps.forEach((item) => {
+      const status =
+        String(item.status || '').toLowerCase();
+
+      if (
+        item.date === todayStr &&
+        status !== 'missed' &&
+        status !== 'overdue' &&
+        status !== 'completed'
+      ) {
+        today++;
+      }
+
+      if (
+        status === 'upcoming' ||
+        status === 'pending' ||
+        status === 'follow-up due' ||
+        status === 'due'
+      ) {
+        upcoming++;
+      }
+
+      if (
+        status === 'missed' ||
+        status === 'overdue'
+      ) {
+        missed++;
+      }
+
+      if (
+        status === 'completed' ||
+        status === 'complete'
+      ) {
+        completed++;
+      }
+    });
+
+    return {
+      all: normalizedFollowUps.length,
+      today,
+      upcoming,
+      missed,
+      completed
+    };
+  }, [normalizedFollowUps, todayStr]);
+
+  const openReschedule = (item) => {
+    setRescheduleTarget(item);
+    setNewDate(item.date || todayStr);
+
+    /*
+     * Convert existing display time such as
+     * 10:30 AM into HTML time format 10:30.
+     */
+    let timeValue = item.time || '';
+
+    if (timeValue.includes('AM') || timeValue.includes('PM')) {
+      const parts = timeValue.trim().split(' ');
+      const clock = parts[0];
+      const period = parts[1];
+
+      const [h, m] = clock.split(':');
+
+      let hour = Number(h);
+
+      if (period === 'AM' && hour === 12) {
+        hour = 0;
+      }
+
+      if (period === 'PM' && hour !== 12) {
+        hour += 12;
+      }
+
+      timeValue = `${String(hour).padStart(2, '0')}:${m}`;
     }
+
+    setNewTime(timeValue || '10:30');
   };
 
-  const handleRescheduleSubmit = async (e) => {
-    e.preventDefault();
-    setRescheduleError('');
-    if (!rescheduleTarget || !newDate) return;
+  const closeReschedule = () => {
+    if (saving) {
+      return;
+    }
+
+    setRescheduleTarget(null);
+    setNewDate('');
+    setNewTime('');
+  };
+
+  const handleComplete = async (item) => {
+    if (!item?.id) {
+      return;
+    }
 
     try {
-      await rescheduleFollowUp(rescheduleTarget.id, newDate, newTime);
-      setRescheduleTarget(null);
-    } catch (err) {
-      setRescheduleError(err.response?.data?.message || 'Follow-up date and time cannot be in the past.');
+      await markFollowUpComplete(item.id);
+    } catch (error) {
+      console.error(
+        'Failed to complete follow-up:',
+        error
+      );
     }
   };
 
+  const handleReschedule = async (event) => {
+    event.preventDefault();
+
+    if (!rescheduleTarget?.id) {
+      return;
+    }
+
+    if (!newDate) {
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      await rescheduleFollowUp(
+        rescheduleTarget.id,
+        newDate,
+        newTime
+      );
+
+      closeReschedule();
+    } catch (error) {
+      console.error(
+        'Failed to reschedule follow-up:',
+        error
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const tabs = [
+    {
+      label: 'All',
+      count: counts.all
+    },
+    {
+      label: 'Today',
+      count: counts.today
+    },
+    {
+      label: 'Upcoming',
+      count: counts.upcoming
+    },
+    {
+      label: 'Missed',
+      count: counts.missed
+    },
+    {
+      label: 'Completed',
+      count: counts.completed
+    }
+  ];
+
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6 pb-24 lg:pb-12">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border-2 border-primary rounded-3xl p-6 shadow-card-custom">
+    <div className="followups-page">
+
+      {/* PAGE HEADER */}
+      <div className="followups-header">
+
         <div>
-          <h1 className="text-xl sm:text-2xl font-black text-darkText">
-            Follow-Up Management Center
-          </h1>
-          <p className="text-xs sm:text-sm font-semibold text-darkText/70 mt-1">
-            Track scheduled recruiter check-ins, reminders, and resolution statuses.
+          <h1>Follow-Ups</h1>
+
+          <p>
+            Manage and track all scheduled HR follow-ups.
           </p>
         </div>
 
-        <button
-          onClick={() => setIsScheduleModalOpen(true)}
-          className="px-5 py-3 bg-primary hover:bg-accent text-darkText font-bold text-xs rounded-2xl shadow-md flex items-center justify-center gap-2 transition-all self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>+ Schedule Follow-Up</span>
-        </button>
+        <div className="followups-total-card">
+          <CalendarDays size={22} />
+
+          <div>
+            <strong>{counts.all}</strong>
+            <span>Total Follow-Ups</span>
+          </div>
+        </div>
+
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b-2 border-olive/40">
-        {['All', 'Today', 'Upcoming', 'Missed', 'Completed'].map(tab => {
-          const isSelected = activeTab === tab;
-          let badgeCount = 0;
-          if (tab === 'All') badgeCount = followUps.length;
-          if (tab === 'Today') badgeCount = followUps.filter(f => f.date === todayStr && f.status !== 'MISSED').length;
-          if (tab === 'Upcoming') badgeCount = followUps.filter(f => f.status === 'Pending' || f.status === 'Upcoming').length;
-          if (tab === 'Missed') badgeCount = followUps.filter(f => f.status === 'MISSED' || f.status === 'Overdue').length;
-          if (tab === 'Completed') badgeCount = followUps.filter(f => f.status === 'Completed').length;
+      {/* SUMMARY CARDS */}
+      <div className="followups-summary">
 
-          return (
+        <div className="summary-card">
+          <div className="summary-icon">
+            <CalendarDays size={22} />
+          </div>
+
+          <div>
+            <span>Today</span>
+            <strong>{counts.today}</strong>
+          </div>
+        </div>
+
+        <div className="summary-card">
+          <div className="summary-icon">
+            <Clock size={22} />
+          </div>
+
+          <div>
+            <span>Upcoming</span>
+            <strong>{counts.upcoming}</strong>
+          </div>
+        </div>
+
+        <div className="summary-card">
+          <div className="summary-icon">
+            <AlertCircle size={22} />
+          </div>
+
+          <div>
+            <span>Missed</span>
+            <strong>{counts.missed}</strong>
+          </div>
+        </div>
+
+        <div className="summary-card">
+          <div className="summary-icon">
+            <CheckCircle2 size={22} />
+          </div>
+
+          <div>
+            <span>Completed</span>
+            <strong>{counts.completed}</strong>
+          </div>
+        </div>
+
+      </div>
+
+      {/* SEARCH */}
+      <div className="followups-toolbar">
+
+        <div className="followups-search">
+          <Search size={19} />
+
+          <input
+            type="text"
+            placeholder="Search HR, company, phone..."
+            value={searchTerm}
+            onChange={(event) =>
+              setSearchTerm(event.target.value)
+            }
+          />
+
+          {searchTerm && (
             <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`
-                px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 whitespace-nowrap transition-all border
-                ${isSelected
-                  ? 'bg-primary text-darkText border-primary shadow-sm'
-                  : 'bg-white text-darkText/70 border-olive/40 hover:bg-cream'
-                }
-              `}
+              type="button"
+              className="clear-search"
+              onClick={() => setSearchTerm('')}
             >
-              <span>{tab}</span>
-              <span className={`
-                text-[10px] px-2 py-0.5 rounded-full font-extrabold
-                ${isSelected ? 'bg-darkText text-cream' : 'bg-cream text-darkText/70 border border-olive/30'}
-              `}>
-                {badgeCount}
-              </span>
+              <X size={17} />
             </button>
-          );
-        })}
+          )}
+        </div>
+
       </div>
 
-      {/* Follow Up Cards List */}
-      {filteredFollowUps.length === 0 ? (
-        <div className="bg-white border-2 border-dashed border-olive/60 rounded-3xl p-12 text-center my-6 space-y-3">
-          <Clock className="w-12 h-12 text-primary mx-auto opacity-80" />
-          <h3 className="text-base font-bold text-darkText">No Follow-Ups in "{activeTab}"</h3>
-          <p className="text-xs text-darkText/70">
-            {activeTab === 'Today' ? 'Your schedule is clear today. Great work!' : 'No follow-up records found matching this filter.'}
-          </p>
-          <button
-            onClick={() => setActiveTab('All')}
-            className="px-4 py-2 bg-primary hover:bg-accent text-darkText font-bold text-xs rounded-xl shadow transition-colors"
-          >
-            View All Follow-Ups
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredFollowUps.map(item => {
-            const statusStyle = getStatusChip(item.status);
-            const hr = hrs.find(h => h.id === item.hrId) || { name: item.hrName, companyName: item.companyName };
+      {/* TABS */}
+      <div className="followups-tabs">
 
-            return (
+        {tabs.map((tab) => (
+          <button
+            key={tab.label}
+            type="button"
+            className={
+              activeTab === tab.label
+                ? 'followup-tab active'
+                : 'followup-tab'
+            }
+            onClick={() =>
+              setActiveTab(tab.label)
+            }
+          >
+            <span>{tab.label}</span>
+
+            <span className="tab-count">
+              {tab.count}
+            </span>
+          </button>
+        ))}
+
+      </div>
+
+      {/* CONTENT */}
+      <div className="followups-content">
+
+        {loading && normalizedFollowUps.length === 0 ? (
+          <div className="followups-empty">
+            <RefreshCw
+              size={34}
+              className="loading-icon"
+            />
+
+            <h3>Loading follow-ups...</h3>
+
+            <p>
+              Please wait while your follow-ups are loaded.
+            </p>
+          </div>
+        ) : filteredFollowUps.length === 0 ? (
+          <div className="followups-empty">
+
+            <CalendarDays size={52} />
+
+            <h3>
+              No follow-ups found
+            </h3>
+
+            <p>
+              {searchTerm
+                ? 'No follow-ups match your search.'
+                : activeTab === 'All'
+                  ? 'You have no scheduled follow-ups yet.'
+                  : `There are no ${activeTab.toLowerCase()} follow-ups.`}
+            </p>
+
+          </div>
+        ) : (
+          <div className="followups-list">
+
+            {filteredFollowUps.map((item) => (
               <div
+                className="followup-card"
                 key={item.id}
-                className="bg-white hover:bg-cream border-2 border-olive/50 hover:border-primary rounded-3xl p-5 shadow-xs transition-all space-y-4 flex flex-col justify-between"
               >
-                <div>
-                  {/* Top Status & Date */}
-                  <div className="flex items-center justify-between gap-2 mb-3">
-                    <span className={`text-[10px] px-2.5 py-1 rounded-full border ${statusStyle.bg}`}>
-                      {statusStyle.label}
+
+                {/* AVATAR */}
+                <div className="followup-avatar">
+                  {getHRInitial(item.hrName)}
+                </div>
+
+                {/* MAIN INFO */}
+                <div className="followup-main">
+
+                  <div className="followup-title-row">
+
+                    <div>
+                      <h3>
+                        {item.hrName}
+                      </h3>
+
+                      <div className="followup-company">
+                        <Building2 size={15} />
+
+                        <span>
+                          {item.companyName}
+                        </span>
+                      </div>
+                    </div>
+
+                    <span
+                      className={getStatusClass(
+                        item.status
+                      )}
+                    >
+                      {getStatusLabel(
+                        item.status
+                      )}
                     </span>
 
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-darkText">
-                      <Calendar className="w-3.5 h-3.5 text-primary" />
-                      <span>{formatNiceDate(item.date)} ({item.time || '10:30 AM'})</span>
-                    </div>
                   </div>
 
-                  {/* HR & Company */}
-                  <h3 className="font-extrabold text-base text-darkText">
-                    {item.hrName}
-                  </h3>
-                  <p className="text-xs font-bold text-darkText/70 mb-2">
-                    {item.companyName}
-                  </p>
+                  <div className="followup-details">
 
-                  {/* Purpose Box */}
-                  <p className="text-xs text-darkText font-medium bg-cream p-3 rounded-2xl border border-olive/40 leading-relaxed italic">
-                    "{item.purpose}"
-                  </p>
+                    <div className="followup-detail">
 
-                  {/* Priority Pill */}
-                  <div className="mt-3 flex items-center justify-between text-[11px]">
-                    <span className="text-darkText/70 font-bold">Priority Level:</span>
-                    <span className={`
-                      font-bold px-2 py-0.5 rounded-md text-[10px] uppercase
-                      ${item.priority === 'High' ? 'bg-red-100 text-red-900 border border-red-300' : 'bg-olive/30 text-darkText border border-olive/50'}
-                    `}>
+                      <CalendarDays size={16} />
+
+                      <span>
+                        {formatNiceDate(
+                          item.date
+                        )}
+                      </span>
+
+                    </div>
+
+                    <div className="followup-detail">
+
+                      <Clock size={16} />
+
+                      <span>
+                        {item.time ||
+                          '10:30 AM'}
+                      </span>
+
+                    </div>
+
+                    {item.phone && (
+                      <div className="followup-detail">
+
+                        <Phone size={16} />
+
+                        <span>
+                          {item.phone}
+                        </span>
+
+                      </div>
+                    )}
+
+                  </div>
+
+                  <div className="followup-purpose">
+                    <span>
+                      Purpose:
+                    </span>
+
+                    <strong>
+                      {item.purpose}
+                    </strong>
+                  </div>
+
+                  <div className="followup-bottom-row">
+
+                    <span
+                      className={getPriorityClass(
+                        item.priority
+                      )}
+                    >
                       {item.priority || 'Medium'} Priority
                     </span>
+
+                    <div className="followup-actions">
+
+                      {String(
+                        item.status || ''
+                      ).toLowerCase() !==
+                        'completed' &&
+                        String(
+                          item.status || ''
+                        ).toLowerCase() !==
+                          'complete' && (
+                          <>
+                            <button
+                              type="button"
+                              className="secondary-action"
+                              onClick={() =>
+                                openReschedule(
+                                  item
+                                )
+                              }
+                            >
+                              <RefreshCw
+                                size={16}
+                              />
+
+                              Reschedule
+                            </button>
+
+                            <button
+                              type="button"
+                              className="primary-action"
+                              onClick={() =>
+                                handleComplete(
+                                  item
+                                )
+                              }
+                            >
+                              <CheckCircle2
+                                size={16}
+                              />
+
+                              Complete
+                            </button>
+                          </>
+                        )}
+
+                    </div>
+
                   </div>
+
                 </div>
 
-                {/* Quick Actions Footer */}
-                <div className="pt-3 border-t border-olive/40 grid grid-cols-2 gap-2">
-                  {item.status !== 'Completed' && item.status !== 'MISSED' && (
-                    <button
-                      onClick={() => markFollowUpComplete(item.id)}
-                      className="py-2.5 px-3 bg-primary hover:bg-accent text-darkText font-bold text-xs rounded-xl shadow flex items-center justify-center gap-1 transition-all"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Mark Done</span>
-                    </button>
-                  )}
-
-                  <button
-                    onClick={() => {
-                      setRescheduleTarget(item);
-                      setNewDate(todayStr);
-                      setNewTime(item.time || '10:30 AM');
-                    }}
-                    className={`
-                      py-2.5 px-3 bg-cream border border-olive hover:bg-olive/30 text-darkText font-bold text-xs rounded-xl flex items-center justify-center gap-1 transition-colors
-                      ${item.status === 'Completed' || item.status === 'MISSED' ? 'col-span-2' : ''}
-                    `}
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    <span>Reschedule</span>
-                  </button>
-                </div>
               </div>
-            );
-          })}
-        </div>
-      )}
+            ))}
 
-      {/* Reschedule Modal */}
+          </div>
+        )}
+
+      </div>
+
+      {/* RESCHEDULE MODAL */}
       {rescheduleTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="bg-white border-2 border-primary rounded-3xl max-w-sm w-full p-6 shadow-modal-custom space-y-4">
-            <div className="flex items-center justify-between border-b border-olive/40 pb-3">
+        <div
+          className="modal-overlay"
+          onMouseDown={(event) => {
+            if (
+              event.target === event.currentTarget
+            ) {
+              closeReschedule();
+            }
+          }}
+        >
+
+          <div className="reschedule-modal">
+
+            <div className="modal-header">
+
               <div>
-                <h3 className="font-bold text-base text-darkText">Reschedule Follow-Up</h3>
-                <span className="text-xs text-darkText/70">{rescheduleTarget.hrName} ({rescheduleTarget.companyName})</span>
+                <h2>
+                  Reschedule Follow-Up
+                </h2>
+
+                <p>
+                  {rescheduleTarget.hrName}
+                  {' · '}
+                  {rescheduleTarget.companyName}
+                </p>
               </div>
-              <button onClick={() => setRescheduleTarget(null)} className="text-xs font-bold text-darkText/70 hover:text-darkText">✕</button>
+
+              <button
+                type="button"
+                className="modal-close"
+                onClick={closeReschedule}
+                disabled={saving}
+              >
+                <X size={20} />
+              </button>
+
             </div>
 
-            {rescheduleError && (
-              <div className="p-3 bg-red-100 text-red-900 text-xs font-bold rounded-xl border border-red-300">
-                ⚠️ {rescheduleError}
-              </div>
-            )}
+            <form
+              onSubmit={handleReschedule}
+            >
 
-            <form onSubmit={handleRescheduleSubmit} className="space-y-3">
-              <div>
-                <label className="block text-xs font-bold text-darkText mb-1">New Date (Must be today or future)</label>
-                <input
-                  type="date"
-                  required
-                  min={todayStr}
-                  value={newDate}
-                  onChange={e => {
-                    setNewDate(e.target.value);
-                    setRescheduleError('');
-                  }}
-                  className="w-full text-xs p-3 bg-cream border border-olive/50 rounded-xl outline-none font-bold text-darkText focus:ring-2 focus:ring-primary"
-                />
-              </div>
+              <div className="form-group">
 
-              <div>
-                <label className="block text-xs font-bold text-darkText mb-1">New Time</label>
-                <input
-                  type="text"
-                  required
-                  value={newTime}
-                  onChange={e => {
-                    setNewTime(e.target.value);
-                    setRescheduleError('');
-                  }}
-                  placeholder="10:30 AM"
-                  className="w-full text-xs p-3 bg-cream border border-olive/50 rounded-xl outline-none font-bold text-darkText focus:ring-2 focus:ring-primary"
-                />
+                <label>
+                  Follow-Up Date
+                </label>
+
+                <div className="input-with-icon">
+
+                  <CalendarDays size={18} />
+
+                  <input
+                    type="date"
+                    value={newDate}
+                    min={todayStr}
+                    onChange={(event) =>
+                      setNewDate(
+                        event.target.value
+                      )
+                    }
+                    required
+                  />
+
+                </div>
+
               </div>
 
-              <div className="pt-2 flex justify-end gap-2">
+              <div className="form-group">
+
+                <label>
+                  Follow-Up Time
+                </label>
+
+                <div className="input-with-icon">
+
+                  <Clock size={18} />
+
+                  <input
+                    type="time"
+                    value={newTime}
+                    onChange={(event) =>
+                      setNewTime(
+                        event.target.value
+                      )
+                    }
+                  />
+
+                </div>
+
+              </div>
+
+              <div className="reschedule-note">
+
+                <AlertCircle size={18} />
+
+                <span>
+                  The selected date and time will
+                  be saved to this HR contact.
+                </span>
+
+              </div>
+
+              <div className="modal-actions">
+
                 <button
                   type="button"
-                  onClick={() => setRescheduleTarget(null)}
-                  className="px-3 py-2 text-xs font-bold text-darkText/70 hover:text-darkText transition-colors"
+                  className="cancel-button"
+                  onClick={closeReschedule}
+                  disabled={saving}
                 >
                   Cancel
                 </button>
+
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-primary hover:bg-accent text-darkText text-xs font-bold rounded-xl shadow transition-all"
+                  className="save-button"
+                  disabled={saving}
                 >
-                  ✓ Save Reschedule
+                  {saving ? (
+                    <>
+                      <RefreshCw
+                        size={17}
+                        className="loading-icon"
+                      />
+
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <CalendarDays
+                        size={17}
+                      />
+
+                      Save Follow-Up
+                    </>
+                  )}
                 </button>
+
               </div>
+
             </form>
+
           </div>
+
         </div>
       )}
 
-      {/* Schedule Modal */}
-      <ScheduleFollowUpModal
-        isOpen={isScheduleModalOpen}
-        onClose={() => setIsScheduleModalOpen(false)}
-      />
+      {/* PAGE STYLES */}
+      <style>{`
+        .followups-page {
+          width: 100%;
+          min-height: 100%;
+          padding: 24px;
+          box-sizing: border-box;
+        }
+
+        .followups-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 20px;
+          margin-bottom: 24px;
+        }
+
+        .followups-header h1 {
+          margin: 0;
+          color: #3A2A16;
+          font-size: 30px;
+          font-weight: 800;
+        }
+
+        .followups-header p {
+          margin: 7px 0 0;
+          color: #766653;
+          font-size: 14px;
+        }
+
+        .followups-total-card {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 13px 18px;
+          border-radius: 14px;
+          background: #FDFBD4;
+          border: 1px solid #D4AF37;
+          color: #3A2A16;
+        }
+
+        .followups-total-card strong {
+          display: block;
+          font-size: 20px;
+          line-height: 1;
+        }
+
+        .followups-total-card span {
+          display: block;
+          margin-top: 4px;
+          font-size: 12px;
+          color: #766653;
+        }
+
+        .followups-summary {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 16px;
+          margin-bottom: 22px;
+        }
+
+        .summary-card {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          padding: 18px;
+          background: #ffffff;
+          border: 1px solid #eadfca;
+          border-radius: 16px;
+          box-shadow: 0 4px 14px rgba(58, 42, 22, 0.05);
+        }
+
+        .summary-icon {
+          width: 44px;
+          height: 44px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 12px;
+          background: #FDFBD4;
+          color: #CE8946;
+        }
+
+        .summary-card span {
+          display: block;
+          font-size: 12px;
+          color: #766653;
+        }
+
+        .summary-card strong {
+          display: block;
+          margin-top: 3px;
+          color: #3A2A16;
+          font-size: 23px;
+        }
+
+        .followups-toolbar {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 16px;
+        }
+
+        .followups-search {
+          width: 100%;
+          max-width: 480px;
+          height: 46px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 0 14px;
+          box-sizing: border-box;
+          background: #ffffff;
+          border: 1px solid #ded3c0;
+          border-radius: 12px;
+          color: #8b795f;
+        }
+
+        .followups-search:focus-within {
+          border-color: #D4AF37;
+          box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.12);
+        }
+
+        .followups-search input {
+          flex: 1;
+          min-width: 0;
+          border: 0;
+          outline: none;
+          background: transparent;
+          color: #3A2A16;
+          font-size: 14px;
+        }
+
+        .followups-search input::placeholder {
+          color: #a79a88;
+        }
+
+        .clear-search {
+          width: 28px;
+          height: 28px;
+          border: 0;
+          background: transparent;
+          color: #8b795f;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 7px;
+        }
+
+        .clear-search:hover {
+          background: #FDFBD4;
+        }
+
+        .followups-tabs {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 18px;
+          padding-bottom: 2px;
+          overflow-x: auto;
+        }
+
+        .followup-tab {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 10px 15px;
+          border: 1px solid #ded3c0;
+          border-radius: 10px;
+          background: #ffffff;
+          color: #6f604f;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          white-space: nowrap;
+        }
+
+        .followup-tab:hover {
+          border-color: #D4AF37;
+        }
+
+        .followup-tab.active {
+          background: #3A2A16;
+          border-color: #3A2A16;
+          color: #ffffff;
+        }
+
+        .tab-count {
+          min-width: 20px;
+          height: 20px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0 5px;
+          box-sizing: border-box;
+          border-radius: 20px;
+          background: #FDFBD4;
+          color: #3A2A16;
+          font-size: 11px;
+          font-weight: 700;
+        }
+
+        .followup-tab.active .tab-count {
+          background: #D4AF37;
+          color: #3A2A16;
+        }
+
+        .followups-list {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
+
+        .followup-card {
+          display: flex;
+          gap: 17px;
+          padding: 20px;
+          background: #ffffff;
+          border: 1px solid #eadfca;
+          border-radius: 17px;
+          box-shadow: 0 4px 14px rgba(58, 42, 22, 0.045);
+          transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .followup-card:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 7px 20px rgba(58, 42, 22, 0.08);
+        }
+
+        .followup-avatar {
+          width: 52px;
+          height: 52px;
+          min-width: 52px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #3A2A16;
+          color: #FDFBD4;
+          border: 2px solid #D4AF37;
+          font-size: 21px;
+          font-weight: 800;
+        }
+
+        .followup-main {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .followup-title-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 15px;
+        }
+
+        .followup-title-row h3 {
+          margin: 0;
+          color: #3A2A16;
+          font-size: 18px;
+          font-weight: 750;
+        }
+
+        .followup-company {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin-top: 5px;
+          color: #766653;
+          font-size: 13px;
+        }
+
+        .followup-status {
+          flex-shrink: 0;
+          padding: 6px 10px;
+          border-radius: 20px;
+          font-size: 11px;
+          font-weight: 750;
+        }
+
+        .followup-status.completed {
+          background: #e6f4e9;
+          color: #28623a;
+        }
+
+        .followup-status.missed {
+          background: #fce7e3;
+          color: #9b3b2d;
+        }
+
+        .followup-status.due {
+          background: #fff1d6;
+          color: #9a641b;
+        }
+
+        .followup-status.upcoming {
+          background: #eaf3fa;
+          color: #496580;
+        }
+
+        .followup-details {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 16px;
+          margin-top: 15px;
+        }
+
+        .followup-detail {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          color: #665846;
+          font-size: 13px;
+        }
+
+        .followup-detail svg {
+          color: #CE8946;
+        }
+
+        .followup-purpose {
+          margin-top: 13px;
+          padding: 11px 13px;
+          background: #FDFBD4;
+          border-radius: 10px;
+          color: #6b5b49;
+          font-size: 13px;
+        }
+
+        .followup-purpose span {
+          margin-right: 5px;
+        }
+
+        .followup-purpose strong {
+          color: #3A2A16;
+          font-weight: 650;
+        }
+
+        .followup-bottom-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 15px;
+          margin-top: 14px;
+        }
+
+        .priority {
+          display: inline-flex;
+          align-items: center;
+          padding: 5px 9px;
+          border-radius: 8px;
+          font-size: 11px;
+          font-weight: 700;
+        }
+
+        .priority.high {
+          background: #fce7e3;
+          color: #9b3b2d;
+        }
+
+        .priority.medium {
+          background: #fff1d6;
+          color: #9a641b;
+        }
+
+        .priority.low {
+          background: #e8f2e8;
+          color: #3e6b42;
+        }
+
+        .followup-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .secondary-action,
+        .primary-action {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 7px;
+          min-height: 36px;
+          padding: 0 12px;
+          border-radius: 9px;
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+        }
+
+        .secondary-action {
+          border: 1px solid #d9cbb5;
+          background: #ffffff;
+          color: #5d4d3c;
+        }
+
+        .secondary-action:hover {
+          border-color: #D4AF37;
+          background: #FDFBD4;
+        }
+
+        .primary-action {
+          border: 1px solid #3A2A16;
+          background: #3A2A16;
+          color: #ffffff;
+        }
+
+        .primary-action:hover {
+          background: #CE8946;
+          border-color: #CE8946;
+        }
+
+        .followups-empty {
+          min-height: 300px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          text-align: center;
+          padding: 40px;
+          background: #ffffff;
+          border: 1px dashed #d9cbb5;
+          border-radius: 17px;
+          color: #9b8c78;
+        }
+
+        .followups-empty h3 {
+          margin: 15px 0 5px;
+          color: #3A2A16;
+          font-size: 18px;
+        }
+
+        .followups-empty p {
+          margin: 0;
+          color: #827361;
+          font-size: 13px;
+        }
+
+        .loading-icon {
+          animation: followup-spin 1s linear infinite;
+        }
+
+        @keyframes followup-spin {
+          from {
+            transform: rotate(0deg);
+          }
+
+          to {
+            transform: rotate(360deg);
+          }
+        }
+
+        .modal-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 9999;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+          background: rgba(58, 42, 22, 0.45);
+        }
+
+        .reschedule-modal {
+          width: 100%;
+          max-width: 450px;
+          background: #ffffff;
+          border-radius: 18px;
+          box-shadow: 0 20px 60px rgba(58, 42, 22, 0.25);
+          overflow: hidden;
+        }
+
+        .modal-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 15px;
+          padding: 20px 22px;
+          border-bottom: 1px solid #eadfca;
+        }
+
+        .modal-header h2 {
+          margin: 0;
+          color: #3A2A16;
+          font-size: 20px;
+        }
+
+        .modal-header p {
+          margin: 5px 0 0;
+          color: #766653;
+          font-size: 12px;
+        }
+
+        .modal-close {
+          width: 34px;
+          height: 34px;
+          border: 0;
+          border-radius: 8px;
+          background: #FDFBD4;
+          color: #3A2A16;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .modal-close:hover {
+          background: #BDB76B;
+        }
+
+        .reschedule-modal form {
+          padding: 22px;
+        }
+
+        .form-group {
+          margin-bottom: 17px;
+        }
+
+        .form-group label {
+          display: block;
+          margin-bottom: 7px;
+          color: #3A2A16;
+          font-size: 13px;
+          font-weight: 700;
+        }
+
+        .input-with-icon {
+          height: 44px;
+          display: flex;
+          align-items: center;
+          gap: 9px;
+          padding: 0 12px;
+          box-sizing: border-box;
+          border: 1px solid #d9cbb5;
+          border-radius: 10px;
+          color: #CE8946;
+        }
+
+        .input-with-icon:focus-within {
+          border-color: #D4AF37;
+          box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.12);
+        }
+
+        .input-with-icon input {
+          width: 100%;
+          border: 0;
+          outline: none;
+          background: transparent;
+          color: #3A2A16;
+          font-size: 14px;
+        }
+
+        .reschedule-note {
+          display: flex;
+          align-items: flex-start;
+          gap: 8px;
+          margin-top: 4px;
+          margin-bottom: 20px;
+          padding: 11px 12px;
+          border-radius: 10px;
+          background: #FDFBD4;
+          color: #6b5b49;
+          font-size: 12px;
+          line-height: 1.5;
+        }
+
+        .reschedule-note svg {
+          flex-shrink: 0;
+          margin-top: 1px;
+          color: #CE8946;
+        }
+
+        .modal-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 9px;
+        }
+
+        .cancel-button,
+        .save-button {
+          min-height: 40px;
+          padding: 0 15px;
+          border-radius: 9px;
+          font-size: 13px;
+          font-weight: 700;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 7px;
+        }
+
+        .cancel-button {
+          border: 1px solid #d9cbb5;
+          background: #ffffff;
+          color: #5d4d3c;
+        }
+
+        .save-button {
+          border: 1px solid #3A2A16;
+          background: #3A2A16;
+          color: #ffffff;
+        }
+
+        .save-button:hover {
+          background: #CE8946;
+          border-color: #CE8946;
+        }
+
+        .cancel-button:disabled,
+        .save-button:disabled,
+        .modal-close:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
+        }
+
+        @media (max-width: 1000px) {
+          .followups-summary {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
+
+        @media (max-width: 700px) {
+          .followups-page {
+            padding: 16px;
+          }
+
+          .followups-header {
+            align-items: flex-start;
+            flex-direction: column;
+          }
+
+          .followups-total-card {
+            width: 100%;
+            box-sizing: border-box;
+          }
+
+          .followups-summary {
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+          }
+
+          .summary-card {
+            padding: 13px;
+          }
+
+          .summary-icon {
+            width: 38px;
+            height: 38px;
+          }
+
+          .followup-card {
+            padding: 15px;
+          }
+
+          .followup-title-row {
+            flex-direction: column;
+          }
+
+          .followup-bottom-row {
+            align-items: flex-start;
+            flex-direction: column;
+          }
+
+          .followup-actions {
+            width: 100%;
+          }
+
+          .secondary-action,
+          .primary-action {
+            flex: 1;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .followups-summary {
+            grid-template-columns: 1fr;
+          }
+
+          .followup-card {
+            gap: 12px;
+          }
+
+          .followup-avatar {
+            width: 44px;
+            height: 44px;
+            min-width: 44px;
+            font-size: 18px;
+          }
+
+          .followup-details {
+            flex-direction: column;
+            gap: 8px;
+          }
+
+          .followup-actions {
+            flex-direction: column;
+          }
+
+          .secondary-action,
+          .primary-action {
+            width: 100%;
+          }
+
+          .modal-actions {
+            flex-direction: column-reverse;
+          }
+
+          .cancel-button,
+          .save-button {
+            width: 100%;
+          }
+        }
+      `}</style>
+
     </div>
   );
 };
+
+export default FollowUps;

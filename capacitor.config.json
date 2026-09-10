@@ -2,15 +2,19 @@
   "appId": "com.dhaanish.placementhr",
   "appName": "Placement Officer HR Manager",
   "webDir": "dist",
+
   "server": {
+    "url": "https://placement-hr-management-kqwl.vercel.app",
     "androidScheme": "https",
-    "cleartext": true
+    "cleartext": false
   },
+
   "plugins": {
     "StatusBar": {
       "style": "DARK",
       "backgroundColor": "#D4AF37"
     },
+
     "LocalNotifications": {
       "smallIcon": "ic_stat_icon_config_sample",
       "iconColor": "#D4AF37"
