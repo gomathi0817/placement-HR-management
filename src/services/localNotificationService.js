@@ -1,28 +1,38 @@
 import { LocalNotifications } from '@capacitor/local-notifications';
 
-const CHANNEL_ID = 'placement-hr-reminders';
+const CHANNEL_ID = 'placement-hr-reminders-v2';
 
+/**
+ * Convert a follow-up ID into a valid Android notification ID.
+ */
 const getNotificationId = (id) => {
-  const numericId = Number(
-    String(id || '').replace(/\D/g, '').slice(-8)
-  );
+  const numericId = String(id || '')
+    .replace(/\D/g, '')
+    .slice(0, 8);
 
-  if (numericId > 0) {
-    return numericId;
+  if (numericId) {
+    return Math.max(1, Number(numericId));
   }
 
-  return Math.floor(Math.random() * 90000000) + 10000000;
+  // Stable fallback for IDs without numbers
+  let hash = 0;
+
+  String(id || '').split('').forEach((char) => {
+    hash = ((hash << 5) - hash) + char.charCodeAt(0);
+    hash |= 0;
+  });
+
+  return Math.abs(hash) % 2147483647 || 1;
 };
 
-export const localNotificationService = {
+const localNotificationService = {
 
   // =========================================================
-  // REQUEST NOTIFICATION PERMISSION
+  // INITIALIZE NOTIFICATIONS
   // =========================================================
 
-  requestPermission: async () => {
+  initialize: async () => {
     try {
-
       const permission =
         await LocalNotifications.requestPermissions();
 
@@ -31,97 +41,49 @@ export const localNotificationService = {
         permission.display
       );
 
-      return permission.display === 'granted';
-
-    } catch (error) {
-
-      console.error(
-        'Notification permission error:',
-        error
-      );
-
-      return false;
-    }
-  },
-
-
-  // =========================================================
-  // CREATE ANDROID NOTIFICATION CHANNEL
-  // =========================================================
-
-  createChannel: async () => {
-    try {
-
-      await LocalNotifications.createChannel({
-
-        id: CHANNEL_ID,
-
-        name: 'Placement HR Reminders',
-
-        description:
-          'Follow-up reminders for HR contacts',
-
-        importance: 5,
-
-        visibility: 1,
-
-        sound: 'default',
-
-        vibration: true
-
-      });
-
-      console.log(
-        'Placement HR notification channel created.'
-      );
-
-    } catch (error) {
-
-      console.error(
-        'Notification channel error:',
-        error
-      );
-
-    }
-  },
-
-
-  // =========================================================
-  // INITIALIZE NOTIFICATIONS
-  // =========================================================
-
-  initialize: async () => {
-    try {
-
-      const granted =
-        await localNotificationService.requestPermission();
-
-      if (!granted) {
-
-        console.log(
+      if (permission.display !== 'granted') {
+        console.warn(
           'Notification permission was not granted.'
         );
 
         return false;
       }
 
+      // Create Android notification channel
+      await LocalNotifications.createChannel({
+        id: CHANNEL_ID,
 
-      await localNotificationService.createChannel();
+        name: 'Placement HR Follow-up Reminders',
 
+        description:
+          'Notifications for HR follow-up reminders',
+
+        importance: 5,
+
+        visibility: 1,
+
+        // Custom notification sound
+        sound: 'placement_reminder',
+
+        vibration: true
+      });
+
+      console.log(
+        'Local notification service initialized with custom sound.'
+      );
 
       return true;
 
     } catch (error) {
 
       console.error(
-        'Notification initialization error:',
+        'Local notification initialization error:',
         error
       );
 
       return false;
     }
   },
-
 
   // =========================================================
   // SCHEDULE FOLLOW-UP REMINDER
@@ -137,176 +99,84 @@ export const localNotificationService = {
 
     try {
 
-      // -------------------------------------------------------
-      // Make sure notifications are initialized
-      // -------------------------------------------------------
-
-      const initialized =
-        await localNotificationService.initialize();
-
-
-      if (!initialized) {
-
-        throw new Error(
-          'Notification permission was not granted.'
+      if (!id || !date || !time) {
+        console.warn(
+          'Cannot schedule reminder: missing data.'
         );
 
+        return false;
       }
-
-
-      // -------------------------------------------------------
-      // Validate date
-      // -------------------------------------------------------
-
-      if (!date) {
-
-        throw new Error(
-          'Reminder date is required.'
-        );
-
-      }
-
-
-      // -------------------------------------------------------
-      // Validate time
-      // -------------------------------------------------------
-
-      if (!time) {
-
-        throw new Error(
-          'Reminder time is required.'
-        );
-
-      }
-
-
-      // -------------------------------------------------------
-      // Create JavaScript Date
-      // -------------------------------------------------------
-
-      const notificationDate =
-        new Date(`${date}T${time}`);
-
-
-      if (
-        Number.isNaN(
-          notificationDate.getTime()
-        )
-      ) {
-
-        throw new Error(
-          'Invalid reminder date or time.'
-        );
-
-      }
-
-
-      // -------------------------------------------------------
-      // Don't schedule past reminders
-      // -------------------------------------------------------
-
-      if (
-        notificationDate.getTime() <= Date.now()
-      ) {
-
-        console.log(
-          'Reminder date/time is in the past.'
-        );
-
-        return null;
-
-      }
-
-
-      // -------------------------------------------------------
-      // Generate stable notification ID
-      // -------------------------------------------------------
 
       const notificationId =
         getNotificationId(id);
 
+      const scheduledDate =
+        new Date(`${date}T${time}`);
 
-      // -------------------------------------------------------
-      // Schedule Android notification
-      // -------------------------------------------------------
+      // Do not schedule reminders in the past
+      if (
+        Number.isNaN(scheduledDate.getTime()) ||
+        scheduledDate <= new Date()
+      ) {
+        console.warn(
+          'Reminder date/time is in the past.'
+        );
+
+        return false;
+      }
 
       await LocalNotifications.schedule({
-
         notifications: [
-
           {
-
             id: notificationId,
 
             title:
-              'Placement HR Reminder',
+              'Placement Follow-up Reminder',
 
             body:
-              `Follow-up with ${hrName || 'HR'}${
+              `Follow up with ${hrName || 'HR contact'}${
                 companyName
-                  ? ` - ${companyName}`
+                  ? ` from ${companyName}`
                   : ''
-              }`,
+              }.`,
+
 
             schedule: {
-
-              at: notificationDate,
-
+              at: scheduledDate,
               allowWhileIdle: true
-
             },
 
-            channelId:
-              CHANNEL_ID,
+            channelId: CHANNEL_ID,
 
             smallIcon:
               'ic_stat_icon_config_sample',
 
-            sound:
-              'default',
-
-            actionTypeId:
-              '',
+            iconColor:
+              '#D4AF37',
 
             extra: {
-
-              followUpId:
-                String(id || ''),
-
-              hrName:
-                hrName || '',
-
-              companyName:
-                companyName || '',
-
-              date:
-                date,
-
-              time:
-                time
-
+              followUpId: id,
+              hrName: hrName || '',
+              companyName: companyName || '',
+              date: date || '',
+              time: time || ''
             }
-
           }
-
         ]
-
       });
 
-
       console.log(
-        'Android reminder scheduled:',
+        'Reminder scheduled successfully:',
         {
           notificationId,
-          followUpId: id,
+          hrName,
+          companyName,
           date,
           time
         }
       );
 
-
-      return notificationId;
-
+      return true;
 
     } catch (error) {
 
@@ -315,12 +185,9 @@ export const localNotificationService = {
         error
       );
 
-      throw error;
-
+      return false;
     }
-
   },
-
 
   // =========================================================
   // CANCEL ONE REMINDER
@@ -330,28 +197,27 @@ export const localNotificationService = {
 
     try {
 
+      if (!id) {
+        return false;
+      }
+
       const notificationId =
         getNotificationId(id);
 
-
       await LocalNotifications.cancel({
-
         notifications: [
-
           {
             id: notificationId
           }
-
         ]
-
       });
 
-
       console.log(
-        'Android reminder cancelled:',
+        'Reminder cancelled:',
         notificationId
       );
 
+      return true;
 
     } catch (error) {
 
@@ -360,10 +226,9 @@ export const localNotificationService = {
         error
       );
 
+      return false;
     }
-
   },
-
 
   // =========================================================
   // CANCEL ALL REMINDERS
@@ -376,34 +241,26 @@ export const localNotificationService = {
       const pending =
         await LocalNotifications.getPending();
 
-
       if (
-        !pending.notifications.length
+        pending.notifications &&
+        pending.notifications.length > 0
       ) {
 
-        return;
-
+        await LocalNotifications.cancel({
+          notifications:
+            pending.notifications.map(
+              (notification) => ({
+                id: notification.id
+              })
+            )
+        });
       }
 
-
-      await LocalNotifications.cancel({
-
-        notifications:
-          pending.notifications.map(
-            (notification) => ({
-
-              id: notification.id
-
-            })
-          )
-
-      });
-
-
       console.log(
-        'All Android reminders cancelled.'
+        'All reminders cancelled.'
       );
 
+      return true;
 
     } catch (error) {
 
@@ -412,10 +269,9 @@ export const localNotificationService = {
         error
       );
 
+      return false;
     }
-
   },
-
 
   // =========================================================
   // GET PENDING REMINDERS
@@ -428,11 +284,7 @@ export const localNotificationService = {
       const result =
         await LocalNotifications.getPending();
 
-
-      return (
-        result.notifications || []
-      );
-
+      return result.notifications || [];
 
     } catch (error) {
 
@@ -442,12 +294,8 @@ export const localNotificationService = {
       );
 
       return [];
-
     }
-
   }
-
 };
-
 
 export default localNotificationService;

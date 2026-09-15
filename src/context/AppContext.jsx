@@ -12,7 +12,7 @@ import { companyService } from '../services/companyService';
 import { interactionService } from '../services/interactionService';
 import { followUpService } from '../services/followUpService';
 import { notificationService } from '../services/notificationService';
-import { localNotificationService } from '../services/localNotificationService';
+import localNotificationService from "../services/localNotificationService";
 import { supabase } from '../lib/supabaseClient';
 
 const AppContext = createContext();
@@ -132,19 +132,27 @@ export const AppProvider = ({ children }) => {
   // REFRESH ALL APPLICATION DATA
   // =========================================================
 
+   // =========================================================
+  // REFRESH ALL APPLICATION DATA
+  // =========================================================
+
   const refreshAppData = useCallback(
     async () => {
-
       try {
+        // =====================================================
+        // CHECK CURRENT SESSION
+        // =====================================================
 
         const {
           data: { session },
           error: sessionError
         } = await supabase.auth.getSession();
 
+        // =====================================================
+        // SESSION ERROR
+        // =====================================================
 
         if (sessionError) {
-
           console.error(
             'Session check failed:',
             sessionError
@@ -155,48 +163,52 @@ export const AppProvider = ({ children }) => {
           return;
         }
 
+        // =====================================================
+        // NO LOGGED-IN USER
+        // =====================================================
 
         if (!session?.user) {
-
           clearApplicationData();
 
           return;
         }
 
+        // =====================================================
+        // LOAD HR CONTACTS FIRST
+        // =====================================================
+        // HR contacts are the main data required by the app.
+        // We load them first so the dashboard can become
+        // usable without waiting for every other service.
+        // =====================================================
 
-        const [
-          hrsData,
-          compsData,
-          intsData,
-          folsData,
-          notifsData
-        ] = await Promise.all([
+        const hrsData = await hrService
+          .getAll()
+          .catch((error) => {
+            console.error(
+              'Failed to load HR contacts:',
+              error
+            );
 
-          // =================================================
-          // HR CONTACTS
-          // =================================================
+            return [];
+          });
 
-          hrService
-            .getAll()
-            .catch((error) => {
+        setHrs(hrsData || []);
 
-              console.error(
-                'Failed to load HR contacts:',
-                error
-              );
+        // =====================================================
+        // LOAD SECONDARY DATA IN BACKGROUND
+        // =====================================================
+        // These requests no longer block the initial HR
+        // contact loading.
+        // =====================================================
 
-              return [];
-            }),
-
-
-          // =================================================
+        Promise.all([
+          // ===================================================
           // COMPANIES
-          // =================================================
+          // ===================================================
 
           companyService
             .getAll()
             .catch((error) => {
-
               console.error(
                 'Failed to load companies:',
                 error
@@ -205,15 +217,13 @@ export const AppProvider = ({ children }) => {
               return [];
             }),
 
-
-          // =================================================
+          // ===================================================
           // INTERACTIONS
-          // =================================================
+          // ===================================================
 
           interactionService
             .getAll()
             .catch((error) => {
-
               console.error(
                 'Failed to load interactions:',
                 error
@@ -222,15 +232,13 @@ export const AppProvider = ({ children }) => {
               return [];
             }),
 
-
-          // =================================================
+          // ===================================================
           // FOLLOW UPS
-          // =================================================
+          // ===================================================
 
           followUpService
             .getAll()
             .catch((error) => {
-
               console.error(
                 'Failed to load follow-ups:',
                 error
@@ -239,15 +247,13 @@ export const AppProvider = ({ children }) => {
               return [];
             }),
 
-
-          // =================================================
+          // ===================================================
           // NOTIFICATIONS
-          // =================================================
+          // ===================================================
 
           notificationService
             .getAll()
             .catch((error) => {
-
               console.error(
                 'Failed to load notifications:',
                 error
@@ -255,42 +261,56 @@ export const AppProvider = ({ children }) => {
 
               return [];
             })
+        ]).then(
+          ([
+            compsData,
+            intsData,
+            folsData,
+            notifsData
+          ]) => {
+            // =================================================
+            // UPDATE COMPANIES
+            // =================================================
 
-        ]);
+            setCompanies(
+              compsData || []
+            );
 
+            // =================================================
+            // UPDATE INTERACTIONS
+            // =================================================
 
-        // =====================================================
-        // UPDATE APPLICATION STATE
-        // =====================================================
+            setInteractions(
+              intsData || []
+            );
 
-        setHrs(hrsData || []);
+            // =================================================
+            // UPDATE FOLLOW UPS
+            // =================================================
 
-        setCompanies(
-          compsData || []
+            setFollowUps(
+              folsData || []
+            );
+
+            // =================================================
+            // UPDATE NOTIFICATIONS
+            // =================================================
+
+            setNotifications(
+              notifsData || []
+            );
+
+            console.log(
+              'Background application data loaded.'
+            );
+          }
         );
-
-        setInteractions(
-          intsData || []
-        );
-
-        setFollowUps(
-          folsData || []
-        );
-
-        setNotifications(
-          notifsData || []
-        );
-
-
       } catch (error) {
-
         console.error(
           'Application data refresh error:',
           error
         );
-
       }
-
     },
     [clearApplicationData]
   );

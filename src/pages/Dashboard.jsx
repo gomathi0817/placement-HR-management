@@ -1,794 +1,2745 @@
-import React, { useEffect, useState } from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 
 import {
-  Clock,
-  Calendar,
-  AlertTriangle,
   Users,
   Building2,
+  CalendarDays,
+  Clock3,
+  AlertTriangle,
   MessageSquare,
   CheckCircle2,
-  History,
-  Phone,
-  Mail,
-  MessageCircle,
+  ArrowRight,
   Plus,
+  CalendarClock,
+  BriefcaseBusiness,
+  Activity,
+  Phone,
   ChevronRight,
   RefreshCw
 } from 'lucide-react';
 
-import {
-  getTodayDateString,
-  formatNiceDate
-} from '../utils/dateUtils';
+/* =========================================================
+   PLACE SYNC DASHBOARD
+   ========================================================= */
+
+const COLORS = {
+  dark: '#3A2A16',
+  gold: '#D4AF37',
+  olive: '#BDB76B',
+  cream: '#FDFBD4',
+  orange: '#CE8946',
+  white: '#FFFFFF',
+  muted: '#756B5F',
+  danger: '#B94A48',
+  dangerBg: '#FCEAEA',
+  success: '#3E7D55',
+  successBg: '#EAF6EE',
+  blue: '#4D6F91',
+  blueBg: '#EAF2F8'
+};
+
+/* =========================================================
+   DATE HELPERS
+   ========================================================= */
+
+const getTodayString = () => {
+  const today = new Date();
+
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+};
+
+const normalizeDate = (value) => {
+  if (!value) return '';
+
+  const valueString = String(value);
+
+  if (valueString.includes('T')) {
+    return valueString.split('T')[0];
+  }
+
+  return valueString.slice(0, 10);
+};
+
+const formatDate = (value) => {
+  if (!value) return 'No date';
+
+  const normalized = normalizeDate(value);
+
+  const date = new Date(`${normalized}T00:00:00`);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  });
+};
+
+const formatShortDate = (value) => {
+  if (!value) return '';
+
+  const normalized = normalizeDate(value);
+
+  const date = new Date(`${normalized}T00:00:00`);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short'
+  });
+};
+
+const formatTime = (value) => {
+  if (!value) return '';
+
+  const parts = String(value).split(':');
+
+  if (parts.length < 2) {
+    return value;
+  }
+
+  const hour = Number(parts[0]);
+  const minute = Number(parts[1]);
+
+  if (Number.isNaN(hour) || Number.isNaN(minute)) {
+    return value;
+  }
+
+  const date = new Date();
+
+  date.setHours(hour);
+  date.setMinutes(minute);
+
+  return date.toLocaleTimeString('en-IN', {
+    hour: 'numeric',
+    minute: '2-digit'
+  });
+};
+
+const getGreeting = () => {
+  const hour = new Date().getHours();
+
+  if (hour < 12) {
+    return 'Good Morning';
+  }
+
+  if (hour < 17) {
+    return 'Good Afternoon';
+  }
+
+  return 'Good Evening';
+};
+
+/* =========================================================
+   SAFE DATA HELPERS
+   ========================================================= */
+
+const getHRName = (item) => {
+  return (
+    item?.hrName ||
+    item?.name ||
+    'HR Contact'
+  );
+};
+
+const getCompanyName = (item) => {
+  return (
+    item?.companyName ||
+    item?.company_name ||
+    item?.company ||
+    'Company'
+  );
+};
+
+const getFollowUpDate = (item) => {
+  return (
+    item?.date ||
+    item?.followUpDate ||
+    item?.nextFollowUpDate ||
+    item?.next_follow_up_date ||
+    ''
+  );
+};
+
+const getFollowUpTime = (item) => {
+  return (
+    item?.time ||
+    item?.followUpTime ||
+    item?.nextFollowUpTime ||
+    item?.next_follow_up_time ||
+    ''
+  );
+};
+
+const getFollowUpStatus = (item) => {
+  return String(
+    item?.status || 'Pending'
+  ).toLowerCase();
+};
+
+const isPending = (item) => {
+  const status = getFollowUpStatus(item);
+
+  return (
+    status === 'pending' ||
+    status === 'scheduled' ||
+    status === 'upcoming' ||
+    status === 'due'
+  );
+};
+
+const getDaysOverdue = (dateValue) => {
+  const today = new Date(
+    `${getTodayString()}T00:00:00`
+  );
+
+  const date = new Date(
+    `${normalizeDate(dateValue)}T00:00:00`
+  );
+
+  const difference = Math.floor(
+    (today.getTime() - date.getTime()) /
+      (1000 * 60 * 60 * 24)
+  );
+
+  return Math.max(1, difference);
+};
+
+/* =========================================================
+   STAT CARD
+   ========================================================= */
+
+const StatCard = ({
+  title,
+  value,
+  icon: Icon,
+  iconBackground,
+  iconColor,
+  description,
+  onClick
+}) => {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="
+        group
+        w-full
+        text-left
+        outline-none
+      "
+    >
+      <div
+        className="
+          h-full
+          rounded-[24px]
+          border
+          border-[#E7E0CF]
+          bg-white
+          p-4
+          shadow-[0_8px_28px_rgba(58,42,22,0.06)]
+          transition-all
+          duration-200
+          hover:-translate-y-1
+          hover:shadow-[0_14px_34px_rgba(58,42,22,0.11)]
+          active:scale-[0.99]
+        "
+      >
+        <div className="flex items-start justify-between gap-3">
+
+          <div className="min-w-0">
+
+            <p
+              className="
+                truncate
+                text-[12px]
+                font-bold
+                text-[#756B5F]
+              "
+            >
+              {title}
+            </p>
+
+            <p
+              className="
+                mt-3
+                text-[30px]
+                font-black
+                tracking-tight
+              "
+              style={{
+                color: COLORS.dark
+              }}
+            >
+              {value}
+            </p>
+
+            <p
+              className="
+                mt-1
+                truncate
+                text-[10px]
+                font-medium
+                text-[#968C7F]
+              "
+            >
+              {description}
+            </p>
+
+          </div>
+
+          <div
+            className="
+              flex
+              h-11
+              w-11
+              shrink-0
+              items-center
+              justify-center
+              rounded-2xl
+            "
+            style={{
+              backgroundColor: iconBackground,
+              color: iconColor
+            }}
+          >
+            <Icon
+              size={21}
+              strokeWidth={2}
+            />
+          </div>
+
+        </div>
+
+        <div
+          className="
+            mt-3
+            flex
+            items-center
+            gap-1
+            text-[10px]
+            font-bold
+            opacity-0
+            transition-opacity
+            group-hover:opacity-100
+          "
+          style={{
+            color: COLORS.gold
+          }}
+        >
+          View details
+
+          <ChevronRight size={12} />
+        </div>
+
+      </div>
+    </button>
+  );
+};
+
+/* =========================================================
+   FOLLOW-UP ITEM
+   ========================================================= */
+
+const FollowUpItem = ({
+  followUp,
+  overdue = false,
+  onClick
+}) => {
+  const hrName = getHRName(followUp);
+  const companyName = getCompanyName(followUp);
+  const date = getFollowUpDate(followUp);
+  const time = getFollowUpTime(followUp);
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="
+        w-full
+        text-left
+        outline-none
+      "
+    >
+      <div
+        className="
+          rounded-2xl
+          border
+          bg-white
+          p-4
+          transition-all
+          hover:-translate-y-[1px]
+          hover:shadow-md
+        "
+        style={{
+          borderColor: overdue
+            ? '#F0CCCC'
+            : '#E8E1D0'
+        }}
+      >
+
+        <div className="flex items-start gap-3">
+
+          <div
+            className="
+              flex
+              h-11
+              w-11
+              shrink-0
+              items-center
+              justify-center
+              rounded-xl
+              text-sm
+              font-black
+            "
+            style={{
+              backgroundColor: overdue
+                ? COLORS.dangerBg
+                : COLORS.cream,
+              color: overdue
+                ? COLORS.danger
+                : COLORS.dark
+            }}
+          >
+            {hrName
+              .charAt(0)
+              .toUpperCase()}
+          </div>
+
+          <div className="min-w-0 flex-1">
+
+            <div
+              className="
+                flex
+                items-start
+                justify-between
+                gap-2
+              "
+            >
+
+              <div className="min-w-0">
+
+                <p
+                  className="
+                    truncate
+                    text-sm
+                    font-extrabold
+                  "
+                  style={{
+                    color: COLORS.dark
+                  }}
+                >
+                  {hrName}
+                </p>
+
+                <p
+                  className="
+                    mt-0.5
+                    truncate
+                    text-xs
+                    font-semibold
+                    text-[#7D7468]
+                  "
+                >
+                  {companyName}
+                </p>
+
+              </div>
+
+              <span
+                className="
+                  shrink-0
+                  rounded-full
+                  px-2.5
+                  py-1
+                  text-[9px]
+                  font-extrabold
+                "
+                style={{
+                  backgroundColor: overdue
+                    ? COLORS.dangerBg
+                    : COLORS.successBg,
+                  color: overdue
+                    ? COLORS.danger
+                    : COLORS.success
+                }}
+              >
+                {overdue
+                  ? 'OVERDUE'
+                  : 'TODAY'}
+              </span>
+
+            </div>
+
+            <div
+              className="
+                mt-3
+                flex
+                flex-wrap
+                items-center
+                gap-x-4
+                gap-y-2
+              "
+            >
+
+              <span
+                className="
+                  flex
+                  items-center
+                  gap-1.5
+                  text-[11px]
+                  font-semibold
+                  text-[#766D62]
+                "
+              >
+                <CalendarDays size={13} />
+
+                {formatDate(date)}
+              </span>
+
+              {time && (
+                <span
+                  className="
+                    flex
+                    items-center
+                    gap-1.5
+                    text-[11px]
+                    font-semibold
+                    text-[#766D62]
+                  "
+                >
+                  <Clock3 size={13} />
+
+                  {formatTime(time)}
+                </span>
+              )}
+
+            </div>
+
+          </div>
+
+          <ChevronRight
+            size={17}
+            className="
+              mt-3
+              shrink-0
+              text-[#B6AD9F]
+            "
+          />
+
+        </div>
+
+      </div>
+    </button>
+  );
+};
+
+/* =========================================================
+   QUICK ACTION
+   ========================================================= */
+
+const QuickAction = ({
+  icon: Icon,
+  title,
+  description,
+  onClick
+}) => {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="
+        group
+        flex
+        w-full
+        items-center
+        gap-3
+        rounded-2xl
+        border
+        border-[#E7E0CF]
+        bg-white
+        p-3.5
+        text-left
+        transition-all
+        hover:-translate-y-0.5
+        hover:border-[#D4AF37]
+        hover:shadow-md
+      "
+    >
+
+      <div
+        className="
+          flex
+          h-10
+          w-10
+          shrink-0
+          items-center
+          justify-center
+          rounded-xl
+        "
+        style={{
+          backgroundColor: COLORS.cream,
+          color: COLORS.dark
+        }}
+      >
+        <Icon size={19} />
+      </div>
+
+      <div className="min-w-0 flex-1">
+
+        <p
+          className="
+            text-sm
+            font-extrabold
+          "
+          style={{
+            color: COLORS.dark
+          }}
+        >
+          {title}
+        </p>
+
+        <p
+          className="
+            mt-0.5
+            truncate
+            text-[10px]
+            font-medium
+            text-[#857B6F]
+          "
+        >
+          {description}
+        </p>
+
+      </div>
+
+      <ArrowRight
+        size={15}
+        className="
+          shrink-0
+          text-[#B9AF9E]
+          transition-transform
+          group-hover:translate-x-1
+        "
+      />
+
+    </button>
+  );
+};
+
+/* =========================================================
+   DASHBOARD
+   ========================================================= */
 
 export const Dashboard = () => {
-  const {
-    user,
-    hrs,
-    companies,
-    followUps,
-    interactions,
-    markFollowUpComplete,
-    rescheduleFollowUp,
-    setIsQuickAddOpen
-  } = useApp();
 
   const navigate = useNavigate();
 
-  const todayStr = getTodayDateString();
+  const {
+    user,
+    hrs = [],
+    companies = [],
+    interactions = [],
+    followUps = [],
+    loading,
+    setIsQuickAddOpen
+  } = useApp();
 
-  const [selectedContactHR, setSelectedContactHR] = useState(null);
-  const [rescheduleTarget, setRescheduleTarget] = useState(null);
-  const [newDate, setNewDate] = useState(todayStr);
-  const [newTime, setNewTime] = useState('');
-  const [rescheduleError, setRescheduleError] = useState('');
+  /* =======================================================
+     DATE
+     ======================================================= */
 
-  // ==========================================
-  // CURRENT TIME / GREETING
-  // ==========================================
+  const today = getTodayString();
 
-  const getGreeting = () => {
-    const hour = new Date().getHours();
+  const displayToday =
+    new Date().toLocaleDateString(
+      'en-IN',
+      {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      }
+    );
 
-    if (hour >= 5 && hour < 12) {
-      return 'Good Morning';
-    }
-
-    if (hour >= 12 && hour < 17) {
-      return 'Good Afternoon';
-    }
-
-    if (hour >= 17 && hour < 21) {
-      return 'Good Evening';
-    }
-
-    return 'Good Night';
-  };
-
-  const [greeting, setGreeting] = useState(getGreeting());
-
-  useEffect(() => {
-    const updateGreeting = () => {
-      setGreeting(getGreeting());
-    };
-
-    updateGreeting();
-    const interval = setInterval(updateGreeting, 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // ==========================================
-  // USER NAME
-  // ==========================================
+  /* =======================================================
+     USER
+     ======================================================= */
 
   const userName =
-    user?.name ||
-    user?.Name ||
-    user?.email?.split('@')[0] ||
-    'User';
+    user?.name?.trim() ||
+    'Placement Officer';
 
-  // ==========================================
-  // FOLLOW-UP METRICS
-  // ==========================================
+  /* =======================================================
+     FOLLOW-UP DATA
+     ======================================================= */
 
-  const todayFollowUps = followUps.filter(
-    f =>
-      f.date === todayStr &&
-      f.status !== 'MISSED' &&
-      f.status !== 'Overdue' &&
-      f.status !== 'Completed'
-  );
+  const pendingFollowUps = useMemo(() => {
 
-  const upcomingCount = followUps.filter(
-    f =>
-      f.status === 'Pending' ||
-      f.status === 'Upcoming'
-  ).length;
+    return followUps.filter(
+      isPending
+    );
 
-  const missedItems = followUps.filter(
-    f =>
-      f.status === 'MISSED' ||
-      f.status === 'Overdue'
-  );
+  }, [followUps]);
 
-  const missedCount = missedItems.length;
+  const todayFollowUps = useMemo(() => {
 
-  // ==========================================
-  // REAL DATABASE VALUES
-  // ==========================================
+    return pendingFollowUps.filter(
+      (item) => {
 
-  const totalHRs = hrs.length;
+        return (
+          normalizeDate(
+            getFollowUpDate(item)
+          ) === today
+        );
 
-  const activeCompanies = companies.filter(
-    company => {
-      const status = String(
-        company.status || ''
-      ).toLowerCase();
+      }
+    );
 
-      return (
-        !status ||
-        status === 'active' ||
-        status === 'ongoing'
-      );
-    }
-  ).length;
+  }, [
+    pendingFollowUps,
+    today
+  ]);
 
-  const pendingResponses = hrs.filter(
-    hr =>
-      hr.status === 'Waiting for Response' ||
-      hr.status === 'Pending' ||
-      hr.status === 'waiting'
-  ).length;
+  const overdueFollowUps = useMemo(() => {
+
+    return pendingFollowUps.filter(
+      (item) => {
+
+        const date =
+          normalizeDate(
+            getFollowUpDate(item)
+          );
+
+        return (
+          date &&
+          date < today
+        );
+
+      }
+    );
+
+  }, [
+    pendingFollowUps,
+    today
+  ]);
+
+  const upcomingFollowUps = useMemo(() => {
+
+    return pendingFollowUps.filter(
+      (item) => {
+
+        const date =
+          normalizeDate(
+            getFollowUpDate(item)
+          );
+
+        return (
+          date &&
+          date > today
+        );
+
+      }
+    );
+
+  }, [
+    pendingFollowUps,
+    today
+  ]);
+
+  /* =======================================================
+     PENDING RESPONSES
+     ======================================================= */
+
+  const waitingForResponse =
+    useMemo(() => {
+
+      return hrs.filter((hr) => {
+
+        const status =
+          String(
+            hr?.status || ''
+          ).toLowerCase();
+
+        return (
+          status.includes('waiting') ||
+          status.includes('response')
+        );
+
+      }).length;
+
+    }, [hrs]);
+
+  /* =======================================================
+     COMPLETED ACTIVITIES
+     ======================================================= */
 
   const completedActivities =
-    followUps.filter(
-      f => f.status === 'Completed'
-    ).length;
+    useMemo(() => {
 
-  const recentInteractionsCount =
-    interactions.length;
+      return followUps.filter(
+        (item) => {
 
-  // ==========================================
-  // SUMMARY CARDS
-  // ==========================================
+          const status =
+            String(
+              item?.status || ''
+            ).toLowerCase();
 
-  const summaryCards = [
-    {
-      label: "Today's Follow-Ups",
-      value: todayFollowUps.length.toString().padStart(2, '0'),
-      icon: Clock,
-      color: 'bg-amber-100 text-amber-900 border-amber-300',
-      path: '/follow-ups'
-    },
-    {
-      label: 'Upcoming',
-      value: upcomingCount.toString().padStart(2, '0'),
-      icon: Calendar,
-      color: 'bg-blue-100 text-blue-900 border-blue-300',
-      path: '/follow-ups'
-    },
-    {
-      label: 'Missed Follow-Ups',
-      value: missedCount.toString().padStart(2, '0'),
-      icon: AlertTriangle,
-      color: 'bg-red-100 text-red-900 border-red-300',
-      path: '/follow-ups'
-    },
-    {
-      label: 'Total HR Contacts',
-      value: totalHRs.toString().padStart(2, '0'),
-      icon: Users,
-      color: 'bg-emerald-100 text-emerald-900 border-emerald-300',
-      path: '/hr'
-    },
-    {
-      label: 'Active Companies',
-      value: activeCompanies.toString().padStart(2, '0'),
-      icon: Building2,
-      color: 'bg-purple-100 text-purple-900 border-purple-300',
-      path: '/companies'
-    },
-    {
-      label: 'Pending Responses',
-      value: pendingResponses.toString().padStart(2, '0'),
-      icon: MessageSquare,
-      color: 'bg-indigo-100 text-indigo-900 border-indigo-300',
-      path: '/hr'
-    },
-    {
-      label: 'Completed Activities',
-      value: completedActivities.toString().padStart(2, '0'),
-      icon: CheckCircle2,
-      color: 'bg-teal-100 text-teal-900 border-teal-300',
-      path: '/follow-ups'
-    },
-    {
-      label: 'Recent Interactions',
-      value: recentInteractionsCount.toString().padStart(2, '0'),
-      icon: History,
-      color: 'bg-rose-100 text-rose-900 border-rose-300',
-      path: '/analytics'
-    }
-  ];
+          return status === 'completed';
 
-  // ==========================================
-  // RESCHEDULE
-  // ==========================================
+        }
+      ).length;
 
-  const handleRescheduleSubmit = async e => {
-    e.preventDefault();
-    setRescheduleError('');
+    }, [followUps]);
 
-    if (!rescheduleTarget || !newDate) {
-      return;
-    }
+  /* =======================================================
+     RECENT INTERACTIONS
+     ======================================================= */
 
-    try {
-      await rescheduleFollowUp(
-        rescheduleTarget.id,
-        newDate,
-        newTime
-      );
+  const recentInteractions =
+    useMemo(() => {
 
-      setRescheduleTarget(null);
-    } catch (err) {
-      setRescheduleError(
-        err?.response?.data?.message ||
-          'Follow-up date and time cannot be in the past.'
-      );
-    }
-  };
+      return [
+        ...interactions
+      ]
+        .sort((a, b) => {
 
-  // ==========================================
-  // RECENT ACTIVITY
-  // ==========================================
+          const dateA =
+            a?.date ||
+            a?.interactionDate ||
+            a?.createdAt ||
+            '';
 
-  const recentActivities = [
-    ...interactions.map(item => ({
-      id: `interaction-${item.id}`,
-      text:
-        item.description ||
-        item.notes ||
-        item.purpose ||
-        `${item.hrName || 'HR'} interaction recorded`,
-      date:
-        item.date ||
-        item.createdAt ||
-        item.created_at ||
-        '',
-      type: 'interaction'
-    })),
-
-    ...followUps.map(item => ({
-      id: `followup-${item.id}`,
-      text:
-        item.purpose ||
-        `Follow-up scheduled with ${
-          item.hrName || 'HR'
-        }`,
-      date:
-        item.date ||
-        item.createdAt ||
-        item.created_at ||
-        '',
-      type: 'followup'
-    }))
-  ]
-    .filter(item => item.date)
-    .sort(
-      (a, b) =>
-        new Date(b.date) -
-        new Date(a.date)
-    )
-    .slice(0, 4);
-
-  // ==========================================
-  // RENDER
-  // ==========================================
-
-  return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6 pb-24 lg:pb-12 bg-cream">
-
-      {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border-2 border-primary rounded-3xl p-6 shadow-card-custom">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-black text-darkText">
-              {greeting}, {userName} 👋
-            </h1>
-          </div>
-
-          <p className="text-xs sm:text-sm font-semibold text-darkText/70 mt-1">
-            Here’s your recruitment communication overview for{' '}
-            <span className="font-extrabold text-darkText">
-              {formatNiceDate(todayStr)}
-            </span>
-            .
-          </p>
-        </div>
-
-        <button
-          onClick={() => setIsQuickAddOpen(true)}
-          className="px-5 py-3 bg-primary hover:bg-accent text-darkText font-bold text-xs rounded-2xl shadow-md flex items-center justify-center gap-2 transition-all self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>+ Add HR / Interaction</span>
-        </button>
-      </div>
-
-      {/* SUMMARY CARDS */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        {summaryCards.map((card, idx) => {
-          const Icon = card.icon;
+          const dateB =
+            b?.date ||
+            b?.interactionDate ||
+            b?.createdAt ||
+            '';
 
           return (
-            <div
-              key={idx}
-              onClick={() => navigate(card.path)}
-              className="bg-white hover:bg-cream border-2 border-olive/40 hover:border-primary rounded-2xl p-4 cursor-pointer transition-all shadow-xs hover:shadow-md group flex flex-col justify-between"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-darkText/70 truncate">
-                  {card.label}
-                </span>
-
-                <div className={`w-8 h-8 rounded-xl flex items-center justify-center border ${card.color} group-hover:scale-110 transition-transform`}>
-                  <Icon className="w-4 h-4" />
-                </div>
-              </div>
-
-              <div className="text-2xl sm:text-3xl font-black text-darkText">
-                {card.value}
-              </div>
-            </div>
+            new Date(dateB).getTime() -
+            new Date(dateA).getTime()
           );
-        })}
-      </div>
 
-      {/* TODAY'S ACTION CENTER */}
-      <div className="bg-white border-2 border-primary rounded-3xl p-5 sm:p-6 shadow-card-custom space-y-4">
-        <div className="flex items-center justify-between border-b border-olive/30 pb-3">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-900 flex items-center justify-center font-bold">
-              <Clock className="w-4 h-4" />
-            </div>
+        })
+        .slice(0, 5);
 
-            <div>
-              <h2 className="text-base font-extrabold text-darkText">
-                Today's Action Center
-              </h2>
+    }, [interactions]);
 
-              <span className="text-xs font-semibold text-darkText/70">
-                Scheduled HR Calls & Interactions for Today ({formatNiceDate(todayStr)})
-              </span>
-            </div>
+  /* =======================================================
+     QUICK ADD
+     ======================================================= */
+
+  const openQuickAdd = () => {
+
+    if (
+      typeof setIsQuickAddOpen ===
+      'function'
+    ) {
+      setIsQuickAddOpen(true);
+    } else {
+      navigate('/hr');
+    }
+
+  };
+
+  /* =======================================================
+     LOADING
+     ======================================================= */
+
+  if (loading && !user) {
+
+    return (
+      <div
+        className="
+          flex
+          min-h-[70vh]
+          items-center
+          justify-center
+        "
+        style={{
+          backgroundColor:
+            COLORS.cream
+        }}
+      >
+
+        <div className="text-center">
+
+          <div
+            className="
+              mx-auto
+              flex
+              h-14
+              w-14
+              items-center
+              justify-center
+              rounded-2xl
+            "
+            style={{
+              backgroundColor:
+                COLORS.dark,
+              color:
+                COLORS.gold
+            }}
+          >
+            <RefreshCw
+              size={24}
+              className="
+                animate-spin
+              "
+            />
           </div>
 
-          <span className="bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold px-3 py-1 rounded-full">
-            {todayFollowUps.length} Scheduled Today
-          </span>
+          <p
+            className="
+              mt-4
+              text-sm
+              font-bold
+            "
+            style={{
+              color:
+                COLORS.dark
+            }}
+          >
+            Loading PlaceSync...
+          </p>
+
         </div>
 
-        {todayFollowUps.length === 0 ? (
-          <div className="p-6 bg-cream border border-olive/30 rounded-2xl text-center space-y-1">
-            <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
-
-            <h4 className="font-bold text-sm text-darkText">
-              No Pending Follow-Ups For Today
-            </h4>
-
-            <p className="text-xs text-darkText/70">
-              Today's follow-up schedule is clear.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {todayFollowUps.map(item => {
-              const hr = hrs.find(h => h.id === item.hrId) || {
-                name: item.hrName,
-                companyName: item.companyName,
-                phone: item.phone,
-                email: item.email
-              };
-
-              return (
-                <div
-                  key={item.id}
-                  className="bg-cream border-2 border-olive/50 hover:border-primary rounded-2xl p-4 transition-all shadow-xs space-y-3 flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <div>
-                        <h3 className="font-extrabold text-base text-darkText">
-                          {item.hrName || hr.name || 'HR Contact'}
-                        </h3>
-
-                        <span className="text-xs font-bold text-darkText/70">
-                          {item.companyName || hr.companyName || ''}
-                        </span>
-                      </div>
-
-                      <div className="text-right">
-                        {item.time && (
-                          <span className="inline-block bg-white text-darkText font-black text-xs px-2.5 py-1 rounded-lg border border-olive/40">
-                            {item.time}
-                          </span>
-                        )}
-
-                        {item.priority && (
-                          <span className="block text-[10px] font-bold text-red-700 uppercase tracking-wider mt-1">
-                            Priority: {item.priority}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {item.purpose && (
-                      <p className="text-xs text-darkText font-medium bg-white p-3 rounded-xl border border-olive/30 italic">
-                        "{item.purpose}"
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex items-center justify-between pt-2 border-t border-olive/30">
-                    <button
-                      onClick={() => setSelectedContactHR(hr)}
-                      className="px-4 py-2 bg-primary hover:bg-accent text-darkText font-bold text-xs rounded-xl shadow flex items-center gap-1.5 transition-colors"
-                    >
-                      <Phone className="w-3.5 h-3.5" />
-                      <span>Contact HR</span>
-                    </button>
-
-                    <button
-                      onClick={() => markFollowUpComplete(item.id)}
-                      className="px-3 py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border border-emerald-300 font-bold text-xs rounded-xl flex items-center gap-1 transition-colors"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
-                      <span>Mark Done</span>
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
       </div>
+    );
+  }
 
-      {/* MISSED FOLLOW-UPS */}
-      <div className="bg-white border-2 border-red-300 rounded-3xl p-5 sm:p-6 shadow-card-custom space-y-4">
-        <div className="flex items-center justify-between border-b border-red-200 pb-3">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-red-100 text-red-900 flex items-center justify-center font-bold">
-              <AlertTriangle className="w-4 h-4" />
-            </div>
+  /* =======================================================
+     MAIN UI
+     ======================================================= */
 
-            <div>
-              <h2 className="text-base font-extrabold text-red-900 flex items-center gap-2">
-                <span>Missed Follow-Ups</span>
-                <span className="w-2 h-2 rounded-full bg-red-600 animate-ping" />
-              </h2>
+  return (
+    <main
+      className="
+        min-h-full
+        w-full
+        px-4
+        pb-24
+        pt-5
+        sm:px-6
+        sm:pt-7
+        lg:px-8
+        lg:pb-10
+      "
+      style={{
+        backgroundColor:
+          COLORS.cream
+      }}
+    >
 
-              <span className="text-xs font-semibold text-red-700">
-                Scheduled recruiter check-ins whose date/time passed without completion
-              </span>
-            </div>
-          </div>
+      <div
+        className="
+          mx-auto
+          w-full
+          max-w-7xl
+        "
+      >
 
-          <span className="bg-red-100 text-red-900 font-black text-xs px-3 py-1 rounded-full border border-red-300">
-            🔴 {missedCount} Missed
-          </span>
-        </div>
+        {/* =================================================
+            WELCOME
+            ================================================= */}
 
-        {missedItems.length === 0 ? (
-          <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-center">
-            <p className="text-xs font-bold text-emerald-900">
-              ✓ No missed follow-ups! All recruiter actions are up to date.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {missedItems.map(item => {
-              const hr = hrs.find(h => h.id === item.hrId) || {
-                name: item.hrName,
-                companyName: item.companyName,
-                phone: item.phone,
-                email: item.email
-              };
+        <section
+          className="
+            relative
+            overflow-hidden
+            rounded-[30px]
+            border
+            border-[#D7B943]
+            bg-white
+            p-6
+            shadow-[0_12px_36px_rgba(58,42,22,0.07)]
+            sm:p-8
+          "
+        >
 
-              return (
-                <div
-                  key={item.id}
-                  className="bg-red-50/70 border-2 border-red-200 rounded-2xl p-4 flex flex-col justify-between space-y-3"
-                >
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[10px] font-black uppercase tracking-wider text-red-700 bg-red-100 px-2 py-0.5 rounded border border-red-300">
-                        🔴 MISSED
-                      </span>
+          <div
+            className="
+              relative
+              z-10
+              max-w-3xl
+            "
+          >
 
-                      <span className="text-[11px] font-bold text-red-800">
-                        Due: {formatNiceDate(item.date)}
-                        {item.time && `, ${item.time}`}
-                      </span>
-                    </div>
-
-                    <h3 className="font-extrabold text-sm text-darkText">
-                      {item.hrName || hr.name || 'HR Contact'}
-                      {item.companyName && (
-                        <>
-                          {' — '}
-                          <span className="text-darkText/70">
-                            {item.companyName}
-                          </span>
-                        </>
-                      )}
-                    </h3>
-
-                    {item.purpose && (
-                      <p className="text-xs text-darkText font-medium mt-2 bg-white p-2.5 rounded-xl border border-red-200">
-                        "{item.purpose}"
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    <button
-                      onClick={() => setSelectedContactHR(hr)}
-                      className="py-2.5 bg-red-700 hover:bg-red-800 text-white font-bold text-xs rounded-xl shadow flex items-center justify-center gap-1 transition-colors"
-                    >
-                      <Phone className="w-3.5 h-3.5" />
-                      <span>Contact HR</span>
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setRescheduleTarget(item);
-                        setNewDate(todayStr);
-                        setNewTime(item.time || '');
-                      }}
-                      className="py-2.5 bg-white border border-olive hover:bg-cream text-darkText font-bold text-xs rounded-xl flex items-center justify-center gap-1 shadow-xs transition-colors"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5" />
-                      <span>Reschedule</span>
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* RECENT ACTIVITY & NETWORK */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white border-2 border-olive/50 rounded-3xl p-5 sm:p-6 shadow-card-custom space-y-4">
-          <div className="flex items-center justify-between border-b border-olive/30 pb-3">
-            <div className="flex items-center gap-2">
-              <History className="w-5 h-5 text-darkText" />
-              <h3 className="font-extrabold text-base text-darkText">
-                Recent Activity Log
-              </h3>
-            </div>
-
-            <button
-              onClick={() => navigate('/analytics')}
-              className="text-xs font-bold text-accent hover:underline flex items-center gap-1"
+            <div
+              className="
+                mb-3
+                inline-flex
+                items-center
+                gap-2
+                rounded-full
+                bg-[#FDFBD4]
+                px-3
+                py-1.5
+              "
             >
-              <span>View All</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
 
-          <div className="space-y-3">
-            {recentActivities.length === 0 ? (
-              <div className="p-5 bg-cream rounded-xl border border-olive/30 text-center">
-                <History className="w-7 h-7 mx-auto mb-2 text-darkText/70" />
-                <p className="text-xs font-bold text-darkText">No recent activity</p>
-                <p className="text-[11px] text-darkText/70 mt-1">
-                  Your HR interactions and follow-ups will appear here.
-                </p>
-              </div>
-            ) : (
-              recentActivities.map((act, i) => (
-                <div
-                  key={act.id || i}
-                  className="flex items-start gap-3 p-3 bg-cream rounded-xl border border-olive/30 text-xs"
-                >
-                  <div className="w-2 h-2 rounded-full bg-primary mt-1.5 flex-shrink-0" />
-                  <div className="flex-1 font-semibold text-darkText">
-                    {act.text}
-                  </div>
-                  <span className="text-[10px] font-bold text-darkText/70 whitespace-nowrap">
-                    {act.date}
-                  </span>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
+              <span
+                className="
+                  h-2
+                  w-2
+                  rounded-full
+                "
+                style={{
+                  backgroundColor:
+                    COLORS.gold
+                }}
+              />
 
-        {/* HR NETWORK */}
-        <div className="bg-primary text-darkText rounded-3xl p-6 shadow-card-custom flex flex-col justify-between">
-          <div>
-            <div className="w-10 h-10 rounded-2xl bg-darkText text-cream font-black flex items-center justify-center text-lg mb-4 shadow">
-              GV
-            </div>
-            <h3 className="font-extrabold text-lg text-darkText mb-1">
-              Active HR Contacts Network
-            </h3>
-            <p className="text-xs text-darkText/80 leading-relaxed mb-4 font-medium">
-              Access complete recruiter directory, past conversation timelines, and company requirement sheets.
-            </p>
-          </div>
-
-          <div className="space-y-2 pt-4 border-t border-darkText/20">
-            <button
-              onClick={() => navigate('/hr')}
-              className="w-full py-3 bg-darkText hover:bg-darkText/90 text-cream font-bold text-xs rounded-xl shadow flex items-center justify-center gap-2 transition-all"
-            >
-              <Users className="w-4 h-4" />
-              <span>Browse HR Contacts</span>
-            </button>
-
-            <button
-              onClick={() => navigate('/companies')}
-              className="w-full py-3 bg-white/40 hover:bg-white/60 text-darkText font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all"
-            >
-              <Building2 className="w-4 h-4" />
-              <span>Company Profiles</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* RESCHEDULE MODAL */}
-      {rescheduleTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="bg-white border-2 border-primary rounded-3xl max-w-sm w-full p-6 shadow-modal-custom space-y-4">
-            <div className="flex items-center justify-between border-b border-olive/30 pb-3">
-              <div>
-                <h3 className="font-bold text-base text-darkText">Reschedule Follow-Up</h3>
-                <span className="text-xs text-darkText/70">
-                  {rescheduleTarget.hrName}
-                  {rescheduleTarget.companyName && ` (${rescheduleTarget.companyName})`}
-                </span>
-              </div>
-              <button
-                onClick={() => setRescheduleTarget(null)}
-                className="text-xs font-bold text-darkText/70"
+              <span
+                className="
+                  text-[10px]
+                  font-black
+                  uppercase
+                  tracking-[0.14em]
+                "
+                style={{
+                  color:
+                    COLORS.dark
+                }}
               >
-                ✕
-              </button>
+                Today's Overview
+              </span>
+
             </div>
 
-            {rescheduleError && (
-              <div className="p-3 bg-red-100 text-red-900 text-xs font-bold rounded-xl border border-red-300">
-                ⚠️ {rescheduleError}
-              </div>
-            )}
+            <h2
+              className="
+                text-2xl
+                font-black
+                leading-tight
+                tracking-tight
+                sm:text-4xl
+              "
+              style={{
+                color:
+                  COLORS.dark
+              }}
+            >
+              {getGreeting()}, {userName} 👋
+            </h2>
 
-            <form onSubmit={handleRescheduleSubmit} className="space-y-3">
-              <div>
-                <label className="block text-xs font-bold text-darkText mb-1">
-                  New Date (Must be today or future)
-                </label>
-                <input
-                  type="date"
-                  required
-                  min={todayStr}
-                  value={newDate}
-                  onChange={e => setNewDate(e.target.value)}
-                  className="w-full text-xs p-3 bg-cream border border-olive rounded-xl outline-none font-bold text-darkText"
+            <p
+              className="
+                mt-2
+                max-w-xl
+                text-sm
+                font-medium
+                leading-6
+                text-[#746A5D]
+                sm:text-base
+              "
+            >
+              Stay on top of every HR
+              conversation, follow-up,
+              and placement opportunity.
+            </p>
+
+            <div
+              className="
+                mt-3
+                flex
+                items-center
+                gap-2
+                text-xs
+                font-bold
+                text-[#8A7D6B]
+              "
+            >
+
+              <CalendarDays size={15} />
+
+              <span>
+                {displayToday}
+              </span>
+
+            </div>
+
+            <div
+              className="
+                mt-6
+                flex
+                flex-wrap
+                gap-3
+              "
+            >
+
+              <button
+                type="button"
+                onClick={openQuickAdd}
+                className="
+                  inline-flex
+                  items-center
+                  gap-2
+                  rounded-2xl
+                  px-5
+                  py-3
+                  text-sm
+                  font-black
+                  shadow-md
+                  transition
+                  hover:-translate-y-0.5
+                  hover:shadow-lg
+                  active:scale-[0.98]
+                "
+                style={{
+                  backgroundColor:
+                    COLORS.gold,
+                  color:
+                    COLORS.dark
+                }}
+              >
+
+                <Plus size={19} />
+
+                Add HR / Interaction
+
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  navigate('/follow-ups')
+                }
+                className="
+                  inline-flex
+                  items-center
+                  gap-2
+                  rounded-2xl
+                  border
+                  border-[#E5DDCA]
+                  bg-[#FAF8F1]
+                  px-5
+                  py-3
+                  text-sm
+                  font-black
+                  transition
+                  hover:bg-[#F3EFD9]
+                "
+                style={{
+                  color:
+                    COLORS.dark
+                }}
+              >
+
+                <CalendarClock
+                  size={18}
                 />
-              </div>
+
+                View Follow-Ups
+
+              </button>
+
+            </div>
+
+          </div>
+
+          {/* Decorative circles */}
+
+          <div
+            className="
+              pointer-events-none
+              absolute
+              -right-20
+              -top-24
+              hidden
+              h-72
+              w-72
+              rounded-full
+              opacity-20
+              sm:block
+            "
+            style={{
+              backgroundColor:
+                COLORS.gold
+            }}
+          />
+
+          <div
+            className="
+              pointer-events-none
+              absolute
+              -bottom-28
+              -right-10
+              hidden
+              h-56
+              w-56
+              rounded-full
+              border-[35px]
+              opacity-10
+              sm:block
+            "
+            style={{
+              borderColor:
+                COLORS.orange
+            }}
+          />
+
+        </section>
+
+        {/* =================================================
+            PLACEMENT NETWORK
+            ================================================= */}
+
+        <section className="mt-8">
+
+          <div
+            className="
+              mb-4
+              flex
+              items-end
+              justify-between
+              gap-3
+            "
+          >
+
+            <div>
+
+              <p
+                className="
+                  text-[10px]
+                  font-black
+                  uppercase
+                  tracking-[0.16em]
+                "
+                style={{
+                  color:
+                    COLORS.gold
+                }}
+              >
+                At a glance
+              </p>
+
+              <h3
+                className="
+                  mt-1
+                  text-xl
+                  font-black
+                "
+                style={{
+                  color:
+                    COLORS.dark
+                }}
+              >
+                Your placement network
+              </h3>
+
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                navigate('/hr')
+              }
+              className="
+                hidden
+                items-center
+                gap-1
+                text-xs
+                font-extrabold
+                sm:flex
+              "
+              style={{
+                color:
+                  COLORS.dark
+              }}
+            >
+              View HR
+
+              <ArrowRight
+                size={14}
+              />
+
+            </button>
+
+          </div>
+
+          <div
+            className="
+              grid
+              grid-cols-2
+              gap-3
+              md:grid-cols-4
+            "
+          >
+
+            <StatCard
+              title="Today's Follow-Ups"
+              value={
+                todayFollowUps.length
+              }
+              icon={Clock3}
+              iconBackground={
+                COLORS.cream
+              }
+              iconColor={
+                COLORS.dark
+              }
+              description="Due today"
+              onClick={() =>
+                navigate(
+                  '/follow-ups'
+                )
+              }
+            />
+
+            <StatCard
+              title="Upcoming"
+              value={
+                upcomingFollowUps.length
+              }
+              icon={CalendarDays}
+              iconBackground={
+                COLORS.blueBg
+              }
+              iconColor={
+                COLORS.blue
+              }
+              description="Future follow-ups"
+              onClick={() =>
+                navigate(
+                  '/follow-ups'
+                )
+              }
+            />
+
+            <StatCard
+              title="Missed Follow-Ups"
+              value={
+                overdueFollowUps.length
+              }
+              icon={AlertTriangle}
+              iconBackground={
+                COLORS.dangerBg
+              }
+              iconColor={
+                COLORS.danger
+              }
+              description="Needs attention"
+              onClick={() =>
+                navigate(
+                  '/follow-ups'
+                )
+              }
+            />
+
+            <StatCard
+              title="Total HR Contacts"
+              value={hrs.length}
+              icon={Users}
+              iconBackground="#F4EBDD"
+              iconColor={
+                COLORS.orange
+              }
+              description="Your HR network"
+              onClick={() =>
+                navigate('/hr')
+              }
+            />
+
+            <StatCard
+              title="Active Companies"
+              value={
+                companies.length
+              }
+              icon={Building2}
+              iconBackground="#F0EFD8"
+              iconColor="#777343"
+              description="Company network"
+              onClick={() =>
+                navigate('/companies')
+              }
+            />
+
+            <StatCard
+              title="Pending Responses"
+              value={
+                waitingForResponse
+              }
+              icon={MessageSquare}
+              iconBackground="#EEEFFC"
+              iconColor="#5C6195"
+              description="Waiting for HR"
+              onClick={() =>
+                navigate('/hr')
+              }
+            />
+
+            <StatCard
+              title="Completed Activities"
+              value={
+                completedActivities
+              }
+              icon={CheckCircle2}
+              iconBackground={
+                COLORS.successBg
+              }
+              iconColor={
+                COLORS.success
+              }
+              description="Completed follow-ups"
+              onClick={() =>
+                navigate(
+                  '/follow-ups'
+                )
+              }
+            />
+
+            <StatCard
+              title="Recent Interactions"
+              value={
+                interactions.length
+              }
+              icon={Activity}
+              iconBackground="#FCECEF"
+              iconColor="#98506A"
+              description="Recorded interactions"
+              onClick={() =>
+                navigate('/hr')
+              }
+            />
+
+          </div>
+
+        </section>
+
+        {/* =================================================
+            ACTION CENTER + QUICK ACTIONS
+            ================================================= */}
+
+        <section
+          className="
+            mt-8
+            grid
+            gap-5
+            lg:grid-cols-[1.5fr_1fr]
+          "
+        >
+
+          {/* ACTION CENTER */}
+
+          <div
+            className="
+              rounded-[26px]
+              border
+              border-[#E5DDCA]
+              bg-white
+              p-5
+              shadow-[0_8px_28px_rgba(58,42,22,0.05)]
+              sm:p-6
+            "
+          >
+
+            <div
+              className="
+                mb-5
+                flex
+                items-start
+                justify-between
+                gap-3
+              "
+            >
 
               <div>
-                <label className="block text-xs font-bold text-darkText mb-1">New Time</label>
-                <input
-                  type="text"
-                  required
-                  value={newTime}
-                  onChange={e => setNewTime(e.target.value)}
-                  placeholder="Enter time"
-                  className="w-full text-xs p-3 bg-cream border border-olive rounded-xl outline-none font-bold text-darkText"
-                />
+
+                <div
+                  className="
+                    flex
+                    items-center
+                    gap-2
+                  "
+                >
+
+                  <div
+                    className="
+                      flex
+                      h-9
+                      w-9
+                      items-center
+                      justify-center
+                      rounded-xl
+                    "
+                    style={{
+                      backgroundColor:
+                        COLORS.cream,
+                      color:
+                        COLORS.dark
+                    }}
+                  >
+                    <Clock3
+                      size={18}
+                    />
+                  </div>
+
+                  <h3
+                    className="
+                      text-lg
+                      font-black
+                    "
+                    style={{
+                      color:
+                        COLORS.dark
+                    }}
+                  >
+                    Today's Action Center
+                  </h3>
+
+                </div>
+
+                <p
+                  className="
+                    mt-1
+                    text-xs
+                    font-medium
+                    text-[#82786C]
+                  "
+                >
+                  Follow-ups that need
+                  your attention today.
+                </p>
+
               </div>
 
-              <div className="pt-2 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  navigate(
+                    '/follow-ups'
+                  )
+                }
+                className="
+                  flex
+                  shrink-0
+                  items-center
+                  gap-1
+                  text-xs
+                  font-black
+                "
+                style={{
+                  color:
+                    COLORS.dark
+                }}
+              >
+                All
+
+                <ArrowRight
+                  size={14}
+                />
+
+              </button>
+
+            </div>
+
+            {todayFollowUps.length ===
+            0 ? (
+
+              <div
+                className="
+                  rounded-2xl
+                  border
+                  border-dashed
+                  p-7
+                  text-center
+                "
+                style={{
+                  borderColor:
+                    '#DDD5C3',
+                  backgroundColor:
+                    '#FCFBF6'
+                }}
+              >
+
+                <div
+                  className="
+                    mx-auto
+                    flex
+                    h-12
+                    w-12
+                    items-center
+                    justify-center
+                    rounded-2xl
+                  "
+                  style={{
+                    backgroundColor:
+                      COLORS.successBg,
+                    color:
+                      COLORS.success
+                  }}
+                >
+                  <CheckCircle2
+                    size={23}
+                  />
+                </div>
+
+                <h4
+                  className="
+                    mt-3
+                    text-sm
+                    font-black
+                  "
+                  style={{
+                    color:
+                      COLORS.dark
+                  }}
+                >
+                  No follow-ups today
+                </h4>
+
+                <p
+                  className="
+                    mt-1
+                    text-xs
+                    font-medium
+                    text-[#8A8073]
+                  "
+                >
+                  Your schedule is clear.
+                  Great work!
+                </p>
+
                 <button
                   type="button"
-                  onClick={() => setRescheduleTarget(null)}
-                  className="px-3 py-2 text-xs font-bold text-darkText/70"
+                  onClick={() =>
+                    navigate(
+                      '/follow-ups'
+                    )
+                  }
+                  className="
+                    mt-4
+                    text-xs
+                    font-black
+                    underline
+                    underline-offset-4
+                  "
+                  style={{
+                    color:
+                      COLORS.gold
+                  }}
                 >
-                  Cancel
+                  View upcoming
                 </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-primary hover:bg-accent text-darkText text-xs font-bold rounded-xl shadow transition-colors"
-                >
-                  ✓ Save Reschedule
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
-      {/* QUICK CONTACT MODAL */}
-      {selectedContactHR && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="bg-white border-2 border-primary rounded-3xl max-w-sm w-full p-6 shadow-modal-custom space-y-4">
-            <div className="flex items-center justify-between border-b border-olive/30 pb-3">
-              <div>
-                <h3 className="font-bold text-base text-darkText">
-                  {selectedContactHR.name || 'HR Contact'}
-                </h3>
-                <span className="text-xs text-darkText/70">
-                  {selectedContactHR.companyName || ''}
-                </span>
               </div>
-              <button
-                onClick={() => setSelectedContactHR(null)}
-                className="text-xs font-bold text-darkText/70"
+
+            ) : (
+
+              <div
+                className="
+                  space-y-3
+                "
               >
-                ✕
-              </button>
-            </div>
 
-            <p className="text-xs text-darkText/70">Select action to initiate recruiter outreach:</p>
+                {todayFollowUps
+                  .slice(0, 4)
+                  .map(
+                    (followUp) => (
+                      <FollowUpItem
+                        key={
+                          followUp.id ||
+                          `${getHRName(
+                            followUp
+                          )}-${getFollowUpDate(
+                            followUp
+                          )}`
+                        }
+                        followUp={
+                          followUp
+                        }
+                        onClick={() =>
+                          navigate(
+                            '/follow-ups'
+                          )
+                        }
+                      />
+                    )
+                  )}
 
-            <div className="space-y-2">
-              {selectedContactHR.phone && (
-                <a
-                  href={`tel:${selectedContactHR.phone}`}
-                  className="w-full py-3 px-4 bg-emerald-600 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow"
-                >
-                  <Phone className="w-4 h-4" />
-                  <span>Call {selectedContactHR.phone}</span>
-                </a>
-              )}
+              </div>
 
-              {selectedContactHR.phone && (
-                <a
-                  href={`https://wa.me/${selectedContactHR.phone.replace(/[^0-9]/g, '')}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="w-full py-3 px-4 bg-emerald-800 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow"
-                >
-                  <MessageCircle className="w-4 h-4" />
-                  <span>WhatsApp Message</span>
-                </a>
-              )}
+            )}
 
-              {selectedContactHR.email && (
-                <a
-                  href={`mailto:${selectedContactHR.email}`}
-                  className="w-full py-3 px-4 bg-blue-600 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow"
-                >
-                  <Mail className="w-4 h-4" />
-                  <span>Send Official Email</span>
-                </a>
-              )}
-
-              {!selectedContactHR.phone && !selectedContactHR.email && (
-                <div className="p-3 bg-cream border border-olive/30 rounded-xl text-xs font-semibold text-darkText/70 text-center">
-                  No phone number or email is available for this HR contact.
-                </div>
-              )}
-            </div>
-
-            <button
-              onClick={() => setSelectedContactHR(null)}
-              className="w-full text-center text-xs font-bold text-darkText/70 pt-2"
-            >
-              Cancel
-            </button>
           </div>
-        </div>
-      )}
-    </div>
+
+          {/* QUICK ACTIONS */}
+
+          <div
+            className="
+              rounded-[26px]
+              border
+              border-[#E5DDCA]
+              bg-white
+              p-5
+              shadow-[0_8px_28px_rgba(58,42,22,0.05)]
+              sm:p-6
+            "
+          >
+
+            <div className="mb-5">
+
+              <div
+                className="
+                  flex
+                  items-center
+                  gap-2
+                "
+              >
+
+                <div
+                  className="
+                    flex
+                    h-9
+                    w-9
+                    items-center
+                    justify-center
+                    rounded-xl
+                  "
+                  style={{
+                    backgroundColor:
+                      COLORS.cream,
+                    color:
+                      COLORS.dark
+                  }}
+                >
+                  <BriefcaseBusiness
+                    size={18}
+                  />
+                </div>
+
+                <h3
+                  className="
+                    text-lg
+                    font-black
+                  "
+                  style={{
+                    color:
+                      COLORS.dark
+                  }}
+                >
+                  Quick Actions
+                </h3>
+
+              </div>
+
+              <p
+                className="
+                  mt-1
+                  text-xs
+                  font-medium
+                  text-[#82786C]
+                "
+              >
+                Common placement
+                activities.
+              </p>
+
+            </div>
+
+            <div className="space-y-3">
+
+              <QuickAction
+                icon={Users}
+                title="Add HR Contact"
+                description="Build your HR network"
+                onClick={
+                  openQuickAdd
+                }
+              />
+
+              <QuickAction
+                icon={Phone}
+                title="Record Interaction"
+                description="Save an HR conversation"
+                onClick={() =>
+                  navigate('/hr')
+                }
+              />
+
+              <QuickAction
+                icon={CalendarClock}
+                title="Schedule Follow-Up"
+                description="Never miss a commitment"
+                onClick={() =>
+                  navigate(
+                    '/follow-ups'
+                  )
+                }
+              />
+
+              <QuickAction
+                icon={Building2}
+                title="View Companies"
+                description="Explore your company network"
+                onClick={() =>
+                  navigate(
+                    '/companies'
+                  )
+                }
+              />
+
+            </div>
+
+          </div>
+
+        </section>
+
+        {/* =================================================
+            NEEDS ATTENTION
+            ================================================= */}
+
+        {overdueFollowUps.length >
+          0 && (
+
+          <section className="mt-5">
+
+            <div
+              className="
+                rounded-[26px]
+                border
+                p-5
+                shadow-[0_8px_28px_rgba(58,42,22,0.04)]
+                sm:p-6
+              "
+              style={{
+                backgroundColor:
+                  '#FFF9F7',
+                borderColor:
+                  '#F0CCCC'
+              }}
+            >
+
+              <div
+                className="
+                  mb-5
+                  flex
+                  items-start
+                  justify-between
+                  gap-3
+                "
+              >
+
+                <div>
+
+                  <div
+                    className="
+                      flex
+                      items-center
+                      gap-2
+                    "
+                  >
+
+                    <div
+                      className="
+                        flex
+                        h-9
+                        w-9
+                        items-center
+                        justify-center
+                        rounded-xl
+                      "
+                      style={{
+                        backgroundColor:
+                          COLORS.dangerBg,
+                        color:
+                          COLORS.danger
+                      }}
+                    >
+                      <AlertTriangle
+                        size={18}
+                      />
+                    </div>
+
+                    <h3
+                      className="
+                        text-lg
+                        font-black
+                      "
+                      style={{
+                        color:
+                          COLORS.dark
+                      }}
+                    >
+                      Needs Attention
+                    </h3>
+
+                  </div>
+
+                  <p
+                    className="
+                      mt-1
+                      text-xs
+                      font-medium
+                      text-[#8D756D]
+                    "
+                  >
+                    These follow-ups have
+                    passed their scheduled
+                    date.
+                  </p>
+
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate(
+                      '/follow-ups'
+                    )
+                  }
+                  className="
+                    flex
+                    items-center
+                    gap-1
+                    text-xs
+                    font-black
+                  "
+                  style={{
+                    color:
+                      COLORS.danger
+                  }}
+                >
+                  View all
+
+                  <ArrowRight
+                    size={14}
+                  />
+
+                </button>
+
+              </div>
+
+              <div
+                className="
+                  grid
+                  gap-3
+                  md:grid-cols-2
+                "
+              >
+
+                {overdueFollowUps
+                  .slice(0, 4)
+                  .map(
+                    (followUp) => {
+
+                      const name =
+                        getHRName(
+                          followUp
+                        );
+
+                      const company =
+                        getCompanyName(
+                          followUp
+                        );
+
+                      const overdueDays =
+                        getDaysOverdue(
+                          getFollowUpDate(
+                            followUp
+                          )
+                        );
+
+                      return (
+                        <div
+                          key={
+                            followUp.id ||
+                            `${name}-${getFollowUpDate(
+                              followUp
+                            )}`
+                          }
+                          className="
+                            rounded-2xl
+                            border
+                            border-[#F0D9D5]
+                            bg-white
+                            p-4
+                          "
+                        >
+
+                          <div
+                            className="
+                              flex
+                              items-start
+                              gap-3
+                            "
+                          >
+
+                            <div
+                              className="
+                                flex
+                                h-10
+                                w-10
+                                shrink-0
+                                items-center
+                                justify-center
+                                rounded-xl
+                                text-sm
+                                font-black
+                              "
+                              style={{
+                                backgroundColor:
+                                  COLORS.dangerBg,
+                                color:
+                                  COLORS.danger
+                              }}
+                            >
+                              {name
+                                .charAt(
+                                  0
+                                )
+                                .toUpperCase()}
+                            </div>
+
+                            <div
+                              className="
+                                min-w-0
+                                flex-1
+                              "
+                            >
+
+                              <p
+                                className="
+                                  truncate
+                                  text-sm
+                                  font-black
+                                "
+                                style={{
+                                  color:
+                                    COLORS.dark
+                                }}
+                              >
+                                {name}
+                              </p>
+
+                              <p
+                                className="
+                                  truncate
+                                  text-xs
+                                  font-semibold
+                                  text-[#806F68]
+                                "
+                              >
+                                {company}
+                              </p>
+
+                              <div
+                                className="
+                                  mt-2
+                                  flex
+                                  flex-wrap
+                                  items-center
+                                  gap-2
+                                "
+                              >
+
+                                <span
+                                  className="
+                                    rounded-full
+                                    px-2
+                                    py-1
+                                    text-[10px]
+                                    font-black
+                                  "
+                                  style={{
+                                    backgroundColor:
+                                      COLORS.dangerBg,
+                                    color:
+                                      COLORS.danger
+                                  }}
+                                >
+                                  {overdueDays}{' '}
+                                  {overdueDays ===
+                                  1
+                                    ? 'day'
+                                    : 'days'}{' '}
+                                  overdue
+                                </span>
+
+                                <span
+                                  className="
+                                    text-[10px]
+                                    font-semibold
+                                    text-[#8B8177]
+                                  "
+                                >
+                                  {formatShortDate(
+                                    getFollowUpDate(
+                                      followUp
+                                    )
+                                  )}
+                                </span>
+
+                              </div>
+
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                navigate(
+                                  '/follow-ups'
+                                )
+                              }
+                              className="
+                                shrink-0
+                                rounded-xl
+                                px-3
+                                py-2
+                                text-[10px]
+                                font-black
+                              "
+                              style={{
+                                backgroundColor:
+                                  COLORS.dark,
+                                color:
+                                  COLORS.cream
+                              }}
+                            >
+                              Follow Up
+                            </button>
+
+                          </div>
+
+                        </div>
+                      );
+                    }
+                  )}
+
+              </div>
+
+            </div>
+
+          </section>
+        )}
+
+        {/* =================================================
+            RECENT INTERACTIONS + UPCOMING
+            ================================================= */}
+
+        <section
+          className="
+            mt-5
+            grid
+            gap-5
+            lg:grid-cols-[1.4fr_1fr]
+          "
+        >
+
+          {/* RECENT INTERACTIONS */}
+
+          <div
+            className="
+              rounded-[26px]
+              border
+              border-[#E5DDCA]
+              bg-white
+              p-5
+              shadow-[0_8px_28px_rgba(58,42,22,0.05)]
+              sm:p-6
+            "
+          >
+
+            <div
+              className="
+                mb-5
+                flex
+                items-center
+                justify-between
+              "
+            >
+
+              <div>
+
+                <p
+                  className="
+                    text-[10px]
+                    font-black
+                    uppercase
+                    tracking-[0.16em]
+                  "
+                  style={{
+                    color:
+                      COLORS.gold
+                  }}
+                >
+                  Communication history
+                </p>
+
+                <h3
+                  className="
+                    mt-1
+                    text-lg
+                    font-black
+                  "
+                  style={{
+                    color:
+                      COLORS.dark
+                  }}
+                >
+                  Recent Interactions
+                </h3>
+
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  navigate('/hr')
+                }
+                className="
+                  flex
+                  items-center
+                  gap-1
+                  text-xs
+                  font-black
+                "
+                style={{
+                  color:
+                    COLORS.dark
+                }}
+              >
+                View HR
+
+                <ArrowRight
+                  size={14}
+                />
+
+              </button>
+
+            </div>
+
+            {recentInteractions.length ===
+            0 ? (
+
+              <div
+                className="
+                  rounded-2xl
+                  border
+                  border-dashed
+                  p-7
+                  text-center
+                "
+                style={{
+                  borderColor:
+                    '#DDD5C3',
+                  backgroundColor:
+                    '#FCFBF6'
+                }}
+              >
+
+                <div
+                  className="
+                    mx-auto
+                    flex
+                    h-12
+                    w-12
+                    items-center
+                    justify-center
+                    rounded-2xl
+                  "
+                  style={{
+                    backgroundColor:
+                      COLORS.cream,
+                    color:
+                      COLORS.dark
+                  }}
+                >
+                  <MessageSquare
+                    size={21}
+                  />
+                </div>
+
+                <h4
+                  className="
+                    mt-3
+                    text-sm
+                    font-black
+                  "
+                  style={{
+                    color:
+                      COLORS.dark
+                  }}
+                >
+                  No interactions recorded yet
+                </h4>
+
+                <p
+                  className="
+                    mt-1
+                    text-xs
+                    font-medium
+                    text-[#8A8073]
+                  "
+                >
+                  Start recording your
+                  HR conversations.
+                </p>
+
+              </div>
+
+            ) : (
+
+              <div className="space-y-2">
+
+                {recentInteractions.map(
+                  (
+                    interaction,
+                    index
+                  ) => {
+
+                    const name =
+                      interaction?.hrName ||
+                      interaction?.name ||
+                      'HR Contact';
+
+                    const company =
+                      interaction?.companyName ||
+                      interaction?.company ||
+                      'Company';
+
+                    const date =
+                      interaction?.date ||
+                      interaction?.interactionDate ||
+                      interaction?.createdAt;
+
+                    const type =
+                      interaction?.type ||
+                      interaction?.interactionType ||
+                      'Interaction';
+
+                    return (
+                      <button
+                        type="button"
+                        key={
+                          interaction?.id ||
+                          `${name}-${index}`
+                        }
+                        onClick={() =>
+                          navigate(
+                            '/hr'
+                          )
+                        }
+                        className="
+                          flex
+                          w-full
+                          items-center
+                          gap-3
+                          rounded-2xl
+                          border
+                          border-[#EEE8D9]
+                          p-3
+                          text-left
+                          transition
+                          hover:bg-[#FCFBF5]
+                        "
+                      >
+
+                        <div
+                          className="
+                            flex
+                            h-10
+                            w-10
+                            shrink-0
+                            items-center
+                            justify-center
+                            rounded-xl
+                            text-xs
+                            font-black
+                          "
+                          style={{
+                            backgroundColor:
+                              COLORS.cream,
+                            color:
+                              COLORS.dark
+                          }}
+                        >
+                          {name
+                            .charAt(
+                              0
+                            )
+                            .toUpperCase()}
+                        </div>
+
+                        <div
+                          className="
+                            min-w-0
+                            flex-1
+                          "
+                        >
+
+                          <p
+                            className="
+                              truncate
+                              text-sm
+                              font-extrabold
+                            "
+                            style={{
+                              color:
+                                COLORS.dark
+                            }}
+                          >
+                            {name}
+                          </p>
+
+                          <p
+                            className="
+                              truncate
+                              text-[11px]
+                              font-semibold
+                              text-[#81776B]
+                            "
+                          >
+                            {company}
+                            {' · '}
+                            {type}
+                          </p>
+
+                        </div>
+
+                        <div
+                          className="
+                            hidden
+                            text-right
+                            sm:block
+                          "
+                        >
+
+                          <p
+                            className="
+                              text-[10px]
+                              font-bold
+                              text-[#8A8073]
+                            "
+                          >
+                            {formatShortDate(
+                              date
+                            )}
+                          </p>
+
+                        </div>
+
+                        <ChevronRight
+                          size={15}
+                          className="
+                            shrink-0
+                            text-[#B7AE9F]
+                          "
+                        />
+
+                      </button>
+                    );
+                  }
+                )}
+
+              </div>
+            )}
+
+          </div>
+
+          {/* UPCOMING */}
+
+          <div
+            className="
+              rounded-[26px]
+              border
+              border-[#E5DDCA]
+              bg-white
+              p-5
+              shadow-[0_8px_28px_rgba(58,42,22,0.05)]
+              sm:p-6
+            "
+          >
+
+            <div
+              className="
+                mb-5
+                flex
+                items-center
+                justify-between
+              "
+            >
+
+              <div>
+
+                <p
+                  className="
+                    text-[10px]
+                    font-black
+                    uppercase
+                    tracking-[0.16em]
+                  "
+                  style={{
+                    color:
+                      COLORS.gold
+                  }}
+                >
+                  Next actions
+                </p>
+
+                <h3
+                  className="
+                    mt-1
+                    text-lg
+                    font-black
+                  "
+                  style={{
+                    color:
+                      COLORS.dark
+                  }}
+                >
+                  Upcoming Follow-Ups
+                </h3>
+
+              </div>
+
+              <CalendarDays
+                size={20}
+                style={{
+                  color:
+                    COLORS.gold
+                }}
+              />
+
+            </div>
+
+            {upcomingFollowUps.length ===
+            0 ? (
+
+              <div
+                className="
+                  rounded-2xl
+                  border
+                  border-dashed
+                  p-7
+                  text-center
+                "
+                style={{
+                  borderColor:
+                    '#DDD5C3',
+                  backgroundColor:
+                    '#FCFBF6'
+                }}
+              >
+
+                <CalendarDays
+                  size={24}
+                  className="
+                    mx-auto
+                    text-[#B7AD9E]
+                  "
+                />
+
+                <p
+                  className="
+                    mt-3
+                    text-sm
+                    font-black
+                  "
+                  style={{
+                    color:
+                      COLORS.dark
+                  }}
+                >
+                  No upcoming follow-ups
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate(
+                      '/follow-ups'
+                    )
+                  }
+                  className="
+                    mt-2
+                    text-xs
+                    font-black
+                    underline
+                  "
+                  style={{
+                    color:
+                      COLORS.gold
+                  }}
+                >
+                  Schedule one
+                </button>
+
+              </div>
+
+            ) : (
+
+              <div className="space-y-3">
+
+                {upcomingFollowUps
+                  .slice(0, 4)
+                  .map(
+                    (followUp) => (
+
+                      <button
+                        type="button"
+                        key={
+                          followUp.id ||
+                          `${getHRName(
+                            followUp
+                          )}-${getFollowUpDate(
+                            followUp
+                          )}`
+                        }
+                        onClick={() =>
+                          navigate(
+                            '/follow-ups'
+                          )
+                        }
+                        className="
+                          flex
+                          w-full
+                          items-center
+                          gap-3
+                          rounded-2xl
+                          border
+                          border-[#EEE8D9]
+                          p-3
+                          text-left
+                          transition
+                          hover:bg-[#FCFBF5]
+                        "
+                      >
+
+                        <div
+                          className="
+                            flex
+                            h-10
+                            w-10
+                            shrink-0
+                            items-center
+                            justify-center
+                            rounded-xl
+                          "
+                          style={{
+                            backgroundColor:
+                              COLORS.blueBg,
+                            color:
+                              COLORS.blue
+                          }}
+                        >
+                          <CalendarDays
+                            size={16}
+                          />
+                        </div>
+
+                        <div
+                          className="
+                            min-w-0
+                            flex-1
+                          "
+                        >
+
+                          <p
+                            className="
+                              truncate
+                              text-sm
+                              font-extrabold
+                            "
+                            style={{
+                              color:
+                                COLORS.dark
+                            }}
+                          >
+                            {getHRName(
+                              followUp
+                            )}
+                          </p>
+
+                          <p
+                            className="
+                              truncate
+                              text-[11px]
+                              font-semibold
+                              text-[#81776B]
+                            "
+                          >
+                            {getCompanyName(
+                              followUp
+                            )}
+                          </p>
+
+                        </div>
+
+                        <div
+                          className="
+                            shrink-0
+                            text-right
+                          "
+                        >
+
+                          <p
+                            className="
+                              text-[11px]
+                              font-black
+                            "
+                            style={{
+                              color:
+                                COLORS.dark
+                            }}
+                          >
+                            {formatShortDate(
+                              getFollowUpDate(
+                                followUp
+                              )
+                            )}
+                          </p>
+
+                          {getFollowUpTime(
+                            followUp
+                          ) && (
+                            <p
+                              className="
+                                mt-0.5
+                                text-[10px]
+                                font-semibold
+                                text-[#8C8275]
+                              "
+                            >
+                              {formatTime(
+                                getFollowUpTime(
+                                  followUp
+                                )
+                              )}
+                            </p>
+                          )}
+
+                        </div>
+
+                      </button>
+
+                    )
+                  )}
+
+              </div>
+
+            )}
+
+          </div>
+
+        </section>
+
+      </div>
+
+    </main>
   );
 };

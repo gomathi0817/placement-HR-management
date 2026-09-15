@@ -6,7 +6,15 @@ import {
   Eye,
   EyeOff,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  UserRound,
+  ShieldCheck,
+  Clock3,
+  Mail,
+  Phone,
+  Building2,
+  Settings as SettingsIcon,
+  ChevronRight
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
@@ -64,7 +72,6 @@ export const Settings = () => {
     setPasswordMessage('');
     setPasswordError('');
 
-    // Validate new password
     if (!newPassword) {
       setPasswordError(
         'Please enter a new password.'
@@ -79,7 +86,6 @@ export const Settings = () => {
       return;
     }
 
-    // Validate confirmation
     if (!confirmPassword) {
       setPasswordError(
         'Please confirm your new password.'
@@ -118,6 +124,7 @@ export const Settings = () => {
         error?.message ||
           'Unable to change password. Please try again.'
       );
+
     } finally {
       setPasswordLoading(false);
     }
@@ -132,143 +139,242 @@ export const Settings = () => {
     navigate('/login');
   };
 
+  const userInitial = user?.name
+    ? user.name.charAt(0).toUpperCase()
+    : '?';
+
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6 pb-24 lg:pb-12">
+    <main className="min-h-full w-full bg-[#FDFBD4] px-4 pb-24 pt-5 sm:px-6 sm:pt-7 lg:px-8 lg:pb-12">
 
-      {/* =====================================================
-          HEADER
-      ===================================================== */}
-
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border-2 border-primary rounded-3xl p-6 shadow-card-custom">
-
-        <div>
-          <h1 className="text-xl sm:text-2xl font-black text-darkText">
-            System Settings & Preferences
-          </h1>
-
-          <p className="text-xs sm:text-sm font-semibold text-darkText/70 mt-1">
-            Officer profile configuration and reminder preferences.
-          </p>
-        </div>
-
-        <button
-          onClick={handleLogout}
-          className="px-5 py-2.5 bg-red-700 hover:bg-red-800 text-white font-bold text-xs rounded-2xl shadow flex items-center justify-center gap-2 transition-all self-start sm:self-auto"
-        >
-          <LogOut className="w-4 h-4" />
-
-          <span>
-            Logout
-          </span>
-        </button>
-
-      </div>
-
-      {/* =====================================================
-          MAIN CONTENT
-      ===================================================== */}
-
-      <div className="max-w-4xl space-y-6">
+      <div className="mx-auto w-full max-w-5xl">
 
         {/* ===================================================
-            OFFICER PROFILE
+            HEADER
         =================================================== */}
 
-        <div className="bg-white border-2 border-primary rounded-3xl p-6 shadow-card-custom space-y-4">
+        <section className="relative overflow-hidden rounded-[30px] border border-[#D7B943] bg-white p-5 shadow-[0_12px_35px_rgba(58,42,22,0.07)] sm:p-7">
 
-          <div className="flex items-center gap-3 border-b border-olive/40 pb-4">
+          <div className="absolute left-0 top-0 h-1 w-full bg-[#D4AF37]" />
 
-            <div className="w-12 h-12 rounded-2xl bg-primary text-darkText border-2 border-olive font-black flex items-center justify-center text-lg shadow">
-              {user?.name
-                ? user.name.charAt(0).toUpperCase()
-                : 'P'}
-            </div>
+          <div className="relative z-10 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
 
             <div>
 
-              <h3 className="font-extrabold text-base text-darkText">
-                {user?.name || 'Placement Officer'}
-              </h3>
+              <div className="flex items-center gap-2">
 
-              <p className="text-xs text-darkText/70 font-semibold">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FDFBD4] text-[#3A2A16]">
+                  <SettingsIcon size={20} />
+                </div>
 
-                {user?.title || ''}
+                <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#A65D20]">
+                  PlaceSync
+                </span>
 
+              </div>
+
+              <h1 className="mt-3 text-2xl font-black tracking-tight text-[#3A2A16] sm:text-3xl">
+                Settings
+              </h1>
+
+              <p className="mt-1 max-w-xl text-[11px] font-medium leading-5 text-[#81776B] sm:text-xs">
+                Manage your account, security and placement reminder preferences.
+              </p>
+
+            </div>
+
+            <button
+              onClick={handleLogout}
+              className="inline-flex items-center justify-center gap-2 self-start rounded-xl bg-[#A33D3D] px-5 py-2.5 text-[9px] font-black text-white transition hover:bg-[#8E3232] sm:self-auto"
+            >
+              <LogOut size={14} />
+              Logout
+            </button>
+
+          </div>
+
+          <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-[#D4AF37] opacity-10" />
+
+        </section>
+
+        {/* ===================================================
+            PROFILE
+        =================================================== */}
+
+        <section className="mt-5 rounded-[28px] border border-[#E3DAC6] bg-white p-5 shadow-[0_8px_26px_rgba(58,42,22,0.04)] sm:p-6">
+
+          <div className="flex items-start gap-3 border-b border-[#EEE8D9] pb-5">
+
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#3A2A16] text-base font-black text-[#FDFBD4]">
+              {userInitial}
+            </div>
+
+            <div className="min-w-0">
+
+              <p className="text-[8px] font-black uppercase tracking-[0.15em] text-[#A65D20]">
+                Account Profile
+              </p>
+
+              <h2 className="mt-1 truncate text-base font-black text-[#3A2A16]">
+                {user?.name || 'Profile'}
+              </h2>
+
+              <p className="mt-1 text-[9px] font-medium text-[#958A7D]">
+                {user?.title || 'Placement Officer'}
                 {user?.college
-                  ? ` — ${user.college}`
+                  ? ` · ${user.college}`
                   : ''}
-
               </p>
 
             </div>
 
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+          <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
 
             {/* EMAIL */}
 
-            <div>
+            <div className="rounded-2xl border border-[#E8E0D0] bg-[#FCFBF7] p-4">
 
-              <label className="block font-bold text-darkText mb-1">
-                Official Email
-              </label>
+              <div className="flex items-center gap-2">
 
-              <input
-                type="email"
-                disabled
-                value={user?.email || ''}
-                placeholder="Not provided"
-                className="w-full p-3 bg-cream border border-olive/50 rounded-xl font-bold text-darkText"
-              />
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#FDFBD4] text-[#3A2A16]">
+                  <Mail size={14} />
+                </div>
+
+                <div className="min-w-0">
+
+                  <p className="text-[8px] font-black uppercase tracking-wider text-[#958A7D]">
+                    Official Email
+                  </p>
+
+                  <p className="mt-1 truncate text-[10px] font-black text-[#4D4131]">
+                    {user?.email || 'Not provided'}
+                  </p>
+
+                </div>
+
+              </div>
 
             </div>
 
             {/* PHONE */}
 
-            <div>
+            <div className="rounded-2xl border border-[#E8E0D0] bg-[#FCFBF7] p-4">
 
-              <label className="block font-bold text-darkText mb-1">
-                Contact Phone
-              </label>
+              <div className="flex items-center gap-2">
 
-              <input
-                type="text"
-                disabled
-                value={user?.phone || ''}
-                placeholder="Not provided"
-                className="w-full p-3 bg-cream border border-olive/50 rounded-xl font-bold text-darkText"
-              />
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#FFF9F2] text-[#A65D20]">
+                  <Phone size={14} />
+                </div>
+
+                <div className="min-w-0">
+
+                  <p className="text-[8px] font-black uppercase tracking-wider text-[#958A7D]">
+                    Contact Phone
+                  </p>
+
+                  <p className="mt-1 truncate text-[10px] font-black text-[#4D4131]">
+                    {user?.phone || 'Not provided'}
+                  </p>
+
+                </div>
+
+              </div>
+
+            </div>
+
+            {/* TITLE */}
+
+            <div className="rounded-2xl border border-[#E8E0D0] bg-[#FCFBF7] p-4">
+
+              <div className="flex items-center gap-2">
+
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#F7FBF8] text-[#3E7650]">
+                  <UserRound size={14} />
+                </div>
+
+                <div className="min-w-0">
+
+                  <p className="text-[8px] font-black uppercase tracking-wider text-[#958A7D]">
+                    Role
+                  </p>
+
+                  <p className="mt-1 truncate text-[10px] font-black text-[#4D4131]">
+                    {user?.title || 'Not provided'}
+                  </p>
+
+                </div>
+
+              </div>
+
+            </div>
+
+            {/* COLLEGE */}
+
+            <div className="rounded-2xl border border-[#E8E0D0] bg-[#FCFBF7] p-4">
+
+              <div className="flex items-center gap-2">
+
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#FDFBD4] text-[#3A2A16]">
+                  <Building2 size={14} />
+                </div>
+
+                <div className="min-w-0">
+
+                  <p className="text-[8px] font-black uppercase tracking-wider text-[#958A7D]">
+                    Institution
+                  </p>
+
+                  <p className="mt-1 truncate text-[10px] font-black text-[#4D4131]">
+                    {user?.college || 'Not provided'}
+                  </p>
+
+                </div>
+
+              </div>
 
             </div>
 
           </div>
 
-        </div>
+          <div className="mt-4 flex items-center gap-2 rounded-xl border border-[#BFD9C6] bg-[#F7FBF8] p-3">
+
+            <ShieldCheck
+              size={14}
+              className="shrink-0 text-[#3E7650]"
+            />
+
+            <p className="text-[8px] font-bold leading-4 text-[#587060]">
+              Your profile information is connected to your authenticated PlaceSync account.
+            </p>
+
+          </div>
+
+        </section>
 
         {/* ===================================================
-            CHANGE PASSWORD
+            SECURITY
         =================================================== */}
 
-        <div className="bg-white border-2 border-primary rounded-3xl p-6 shadow-card-custom">
+        <section className="mt-5 rounded-[28px] border border-[#E3DAC6] bg-white p-5 shadow-[0_8px_26px_rgba(58,42,22,0.04)] sm:p-6">
 
-          {/* TITLE */}
+          <div className="flex items-start gap-3 border-b border-[#EEE8D9] pb-5">
 
-          <div className="flex items-center gap-3 border-b border-olive/40 pb-4 mb-5">
-
-            <div className="w-10 h-10 rounded-xl bg-primary text-darkText flex items-center justify-center">
-
-              <Lock className="w-5 h-5" />
-
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FDFBD4] text-[#3A2A16]">
+              <Lock size={18} />
             </div>
 
             <div>
 
-              <h3 className="font-extrabold text-base text-darkText">
-                Change Password
-              </h3>
+              <p className="text-[8px] font-black uppercase tracking-[0.15em] text-[#A65D20]">
+                Account Security
+              </p>
 
-              <p className="text-xs text-darkText/70 font-semibold mt-1">
+              <h2 className="mt-1 text-base font-black text-[#3A2A16]">
+                Change Password
+              </h2>
+
+              <p className="mt-1 text-[9px] font-medium text-[#958A7D]">
                 Update your account password securely.
               </p>
 
@@ -276,37 +382,43 @@ export const Settings = () => {
 
           </div>
 
-          {/* SUCCESS MESSAGE */}
+          {/* SUCCESS */}
 
           {passwordMessage && (
-            <div className="mb-4 flex items-center gap-2 p-3 rounded-xl bg-green-50 border border-green-200 text-green-700 text-xs font-bold">
 
-              <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+            <div className="mt-5 flex items-center gap-2 rounded-xl border border-[#BFD9C6] bg-[#F7FBF8] p-3 text-[9px] font-black text-[#3E7650]">
 
-              <span>
-                {passwordMessage}
-              </span>
+              <CheckCircle2
+                size={15}
+                className="shrink-0"
+              />
+
+              {passwordMessage}
 
             </div>
+
           )}
 
-          {/* ERROR MESSAGE */}
+          {/* ERROR */}
 
           {passwordError && (
-            <div className="mb-4 flex items-center gap-2 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold">
 
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <div className="mt-5 flex items-center gap-2 rounded-xl border border-[#EBCACA] bg-[#FFF7F7] p-3 text-[9px] font-black text-[#A33D3D]">
 
-              <span>
-                {passwordError}
-              </span>
+              <AlertCircle
+                size={15}
+                className="shrink-0"
+              />
+
+              {passwordError}
 
             </div>
+
           )}
 
           <form
             onSubmit={handleChangePassword}
-            className="space-y-4"
+            className="mt-5 space-y-4"
           >
 
             {/* NEW PASSWORD */}
@@ -315,7 +427,7 @@ export const Settings = () => {
 
               <label
                 htmlFor="newPassword"
-                className="block font-bold text-darkText text-xs mb-1"
+                className="mb-2 block text-[9px] font-black uppercase tracking-wider text-[#5D5041]"
               >
                 New Password
               </label>
@@ -331,26 +443,23 @@ export const Settings = () => {
                   }
                   value={newPassword}
                   onChange={(e) => {
-                    setNewPassword(
-                      e.target.value
-                    );
+                    setNewPassword(e.target.value);
                     setPasswordError('');
                     setPasswordMessage('');
                   }}
                   placeholder="Enter new password"
                   autoComplete="new-password"
-                  className="w-full p-3 pr-12 bg-cream border border-olive/50 rounded-xl font-bold text-darkText outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
+                  className="w-full rounded-xl border border-[#DDD4C2] bg-[#FCFBF7] p-3 pr-12 text-[10px] font-bold text-[#3A2A16] outline-none transition focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20"
                 />
 
                 <button
                   type="button"
                   onClick={() =>
                     setShowNewPassword(
-                      (previous) =>
-                        !previous
+                      (previous) => !previous
                     )
                   }
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-darkText/60 hover:text-darkText"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#958A7D] transition hover:text-[#3A2A16]"
                   aria-label={
                     showNewPassword
                       ? 'Hide password'
@@ -358,15 +467,15 @@ export const Settings = () => {
                   }
                 >
                   {showNewPassword ? (
-                    <EyeOff className="w-5 h-5" />
+                    <EyeOff size={17} />
                   ) : (
-                    <Eye className="w-5 h-5" />
+                    <Eye size={17} />
                   )}
                 </button>
 
               </div>
 
-              <p className="text-[11px] text-darkText/70 mt-1">
+              <p className="mt-1.5 text-[8px] font-medium text-[#958A7D]">
                 Minimum 6 characters
               </p>
 
@@ -378,7 +487,7 @@ export const Settings = () => {
 
               <label
                 htmlFor="confirmPassword"
-                className="block font-bold text-darkText text-xs mb-1"
+                className="mb-2 block text-[9px] font-black uppercase tracking-wider text-[#5D5041]"
               >
                 Confirm New Password
               </label>
@@ -402,18 +511,17 @@ export const Settings = () => {
                   }}
                   placeholder="Confirm new password"
                   autoComplete="new-password"
-                  className="w-full p-3 pr-12 bg-cream border border-olive/50 rounded-xl font-bold text-darkText outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
+                  className="w-full rounded-xl border border-[#DDD4C2] bg-[#FCFBF7] p-3 pr-12 text-[10px] font-bold text-[#3A2A16] outline-none transition focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20"
                 />
 
                 <button
                   type="button"
                   onClick={() =>
                     setShowConfirmPassword(
-                      (previous) =>
-                        !previous
+                      (previous) => !previous
                     )
                   }
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-darkText/60 hover:text-darkText"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#958A7D] transition hover:text-[#3A2A16]"
                   aria-label={
                     showConfirmPassword
                       ? 'Hide password'
@@ -421,9 +529,9 @@ export const Settings = () => {
                   }
                 >
                   {showConfirmPassword ? (
-                    <EyeOff className="w-5 h-5" />
+                    <EyeOff size={17} />
                   ) : (
-                    <Eye className="w-5 h-5" />
+                    <Eye size={17} />
                   )}
                 </button>
 
@@ -431,19 +539,21 @@ export const Settings = () => {
 
             </div>
 
-            {/* BUTTON */}
-
-            <div className="pt-2">
+            <div className="pt-1">
 
               <button
                 type="submit"
                 disabled={passwordLoading}
-                className="px-6 py-3 bg-primary hover:bg-accent disabled:opacity-60 disabled:cursor-not-allowed text-darkText font-black text-xs rounded-xl shadow transition-all"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#3A2A16] px-5 py-3 text-[9px] font-black text-[#FDFBD4] transition hover:bg-[#A65D20] disabled:cursor-not-allowed disabled:opacity-60"
               >
+
+                <Lock size={13} />
 
                 {passwordLoading
                   ? 'Updating Password...'
                   : 'Change Password'}
+
+                <ChevronRight size={12} />
 
               </button>
 
@@ -451,33 +561,63 @@ export const Settings = () => {
 
           </form>
 
-        </div>
+        </section>
 
         {/* ===================================================
             REMINDER PREFERENCES
         =================================================== */}
 
-        <div className="bg-white border-2 border-primary rounded-3xl p-6 shadow-card-custom space-y-4">
+        <section className="mt-5 rounded-[28px] border border-[#E3DAC6] bg-white p-5 shadow-[0_8px_26px_rgba(58,42,22,0.04)] sm:p-6">
 
-          <div className="flex items-center gap-2 border-b border-olive/40 pb-3">
+          <div className="flex items-start gap-3 border-b border-[#EEE8D9] pb-5">
 
-            <Bell className="w-5 h-5 text-primary" />
-
-            <h3 className="font-extrabold text-base text-darkText">
-              Reminder Preferences
-            </h3>
-
-          </div>
-
-          <div className="space-y-4 text-xs">
-
-            {/* REMINDER TIME */}
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FFF9F2] text-[#A65D20]">
+              <Bell size={18} />
+            </div>
 
             <div>
 
-              <label className="block font-bold text-darkText mb-1">
-                Default Reminder Lead-Time
-              </label>
+              <p className="text-[8px] font-black uppercase tracking-[0.15em] text-[#A65D20]">
+                Notifications
+              </p>
+
+              <h2 className="mt-1 text-base font-black text-[#3A2A16]">
+                Reminder Preferences
+              </h2>
+
+              <p className="mt-1 text-[9px] font-medium text-[#958A7D]">
+                Configure how your follow-up reminders behave.
+              </p>
+
+            </div>
+
+          </div>
+
+          <div className="mt-5 space-y-4">
+
+            {/* LEAD TIME */}
+
+            <div className="rounded-2xl border border-[#E8E0D0] bg-[#FCFBF7] p-4">
+
+              <div className="flex items-center gap-3">
+
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FDFBD4] text-[#3A2A16]">
+                  <Clock3 size={16} />
+                </div>
+
+                <div>
+
+                  <p className="text-[9px] font-black text-[#4D4131]">
+                    Default Reminder Lead-Time
+                  </p>
+
+                  <p className="mt-1 text-[8px] font-medium text-[#958A7D]">
+                    Choose when you want to be reminded before a follow-up.
+                  </p>
+
+                </div>
+
+              </div>
 
               <select
                 value={reminderLeadTime}
@@ -486,7 +626,7 @@ export const Settings = () => {
                     e.target.value
                   )
                 }
-                className="w-full max-w-xs p-3 bg-cream border border-olive rounded-xl font-bold text-darkText"
+                className="mt-4 w-full rounded-xl border border-[#DDD4C2] bg-white p-3 text-[9px] font-black text-[#4D4131] outline-none focus:border-[#D4AF37]"
               >
 
                 <option value="At scheduled time">
@@ -509,57 +649,132 @@ export const Settings = () => {
 
             </div>
 
-            {/* ALERT SETTINGS */}
+            {/* SOUND */}
 
-            <div className="space-y-2 pt-2 border-t border-olive/30">
+            <div className="flex items-center justify-between gap-4 rounded-2xl border border-[#E8E0D0] bg-[#FCFBF7] p-4">
 
-              <label className="flex items-center gap-3 cursor-pointer text-darkText font-bold">
+              <div className="flex items-start gap-3">
 
-                <input
-                  type="checkbox"
-                  checked={soundAlerts}
-                  onChange={(e) =>
-                    setSoundAlerts(
-                      e.target.checked
-                    )
-                  }
-                  className="w-4 h-4 accent-primary rounded"
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#FDFBD4] text-[#3A2A16]">
+                  <Bell size={16} />
+                </div>
+
+                <div>
+
+                  <p className="text-[9px] font-black text-[#4D4131]">
+                    Sound Alerts
+                  </p>
+
+                  <p className="mt-1 text-[8px] font-medium leading-4 text-[#958A7D]">
+                    Play a notification sound for active alerts.
+                  </p>
+
+                </div>
+
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setSoundAlerts(
+                    (previous) => !previous
+                  )
+                }
+                className={`relative h-6 w-11 shrink-0 rounded-full transition ${
+                  soundAlerts
+                    ? 'bg-[#3A2A16]'
+                    : 'bg-[#D8D0C2]'
+                }`}
+                aria-label="Toggle sound alerts"
+              >
+
+                <span
+                  className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition ${
+                    soundAlerts
+                      ? 'left-6'
+                      : 'left-1'
+                  }`}
                 />
 
-                <span>
-                  Enable Audio Sound Chime on Active Alerts
-                </span>
+              </button>
 
-              </label>
+            </div>
 
-              <label className="flex items-center gap-3 cursor-pointer text-darkText font-bold">
+            {/* EMAIL */}
 
-                <input
-                  type="checkbox"
-                  checked={emailDigest}
-                  onChange={(e) =>
-                    setEmailDigest(
-                      e.target.checked
-                    )
-                  }
-                  className="w-4 h-4 accent-primary rounded"
+            <div className="flex items-center justify-between gap-4 rounded-2xl border border-[#E8E0D0] bg-[#FCFBF7] p-4">
+
+              <div className="flex items-start gap-3">
+
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#FFF9F2] text-[#A65D20]">
+                  <Mail size={16} />
+                </div>
+
+                <div>
+
+                  <p className="text-[9px] font-black text-[#4D4131]">
+                    Daily Email Digest
+                  </p>
+
+                  <p className="mt-1 text-[8px] font-medium leading-4 text-[#958A7D]">
+                    Receive a daily summary of HR follow-up activity.
+                  </p>
+
+                </div>
+
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setEmailDigest(
+                    (previous) => !previous
+                  )
+                }
+                className={`relative h-6 w-11 shrink-0 rounded-full transition ${
+                  emailDigest
+                    ? 'bg-[#3A2A16]'
+                    : 'bg-[#D8D0C2]'
+                }`}
+                aria-label="Toggle email digest"
+              >
+
+                <span
+                  className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition ${
+                    emailDigest
+                      ? 'left-6'
+                      : 'left-1'
+                  }`}
                 />
 
-                <span>
-                  Daily Morning HR Summary Digest via Email
-                </span>
-
-              </label>
+              </button>
 
             </div>
 
           </div>
 
+        </section>
+
+        {/* ===================================================
+            SECURITY FOOTER
+        =================================================== */}
+
+        <div className="mt-5 flex items-center justify-center gap-2 px-4 text-center">
+
+          <ShieldCheck
+            size={12}
+            className="text-[#958A7D]"
+          />
+
+          <p className="text-[8px] font-semibold leading-4 text-[#958A7D]">
+            PlaceSync keeps your account settings connected to your authenticated profile.
+          </p>
+
         </div>
 
       </div>
 
-    </div>
+    </main>
   );
 };
 

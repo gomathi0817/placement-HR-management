@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+
+# Local development files
+src/services/oracleJdk-26/
+src/services/voiceNotificationService.js

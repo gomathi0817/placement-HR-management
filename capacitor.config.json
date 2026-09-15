@@ -1,6 +1,6 @@
 {
   "appId": "com.dhaanish.placementhr",
-  "appName": "Placement Officer HR Manager",
+  "appName": "PlaceSync",
   "webDir": "dist",
 
   "server": {
